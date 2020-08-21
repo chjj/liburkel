@@ -75,7 +75,7 @@ urkel_node_init(urkel_node_t *node, unsigned int type) {
     case URKEL_NODE_LEAF: {
       urkel_leaf_t *leaf = &node->u.leaf;
 
-      memset(leaf->key, 0, sizeof(node->u.leaf.key));
+      memset(leaf->key, 0, sizeof(leaf->key));
 
       leaf->value = NULL;
       leaf->size = 0;
@@ -513,7 +513,7 @@ urkel_node_size(const urkel_node_t *node) {
 }
 
 unsigned char *
-urkel_node_write(const urkel_node_t *node, unsigned char *data) {
+urkel_node_write(urkel_node_t *node, unsigned char *data) {
   switch (node->type) {
     case URKEL_NODE_NULL: {
       urkel_abort();
@@ -577,11 +577,6 @@ urkel_node_write(const urkel_node_t *node, unsigned char *data) {
   }
 
   return data;
-}
-
-size_t
-urkel_node_encode(const urkel_node_t *node, unsigned char *data) {
-  return urkel_node_write(node, data) - data;
 }
 
 int
@@ -699,16 +694,4 @@ urkel_node_read(urkel_node_t *node, const unsigned char *data, size_t len) {
   }
 
   return 1;
-}
-
-urkel_node_t *
-urkel_node_decode(const unsigned char *data, size_t len) {
-  urkel_node_t *node = checked_malloc(sizeof(urkel_node_t));
-
-  if (!urkel_node_read(node, data, len)) {
-    free(node);
-    return NULL;
-  }
-
-  return node;
 }

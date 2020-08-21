@@ -1,0 +1,13 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: @PACKAGE_NAME@
+Version: @PACKAGE_VERSION@
+Description: Cryptographically provable key-value store.
+URL: https://github.com/handshake-org/liburkel
+
+Libs: -L${libdir} -lurkel
+Libs.private: @LIBS_PRIVATE@
+Cflags: -I${includedir}

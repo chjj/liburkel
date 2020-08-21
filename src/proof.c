@@ -15,7 +15,7 @@
 
 typedef struct urkel_proof_node_s {
   urkel_bits_t prefix;
-  unsigned char hash[32];
+  unsigned char hash[URKEL_HASH_SIZE];
 } urkel_proof_node_t;
 
 typedef struct urkel_proof_s {
@@ -401,7 +401,7 @@ urkel_proof_verify(const urkel_proof_t *proof,
     }
 
     case URKEL_TYPE_EXISTS: {
-      urkel_hash_value(next, key, proof->value);
+      urkel_hash_value(next, key, proof->value, proof->size);
       break;
     }
 
