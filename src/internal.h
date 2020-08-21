@@ -7,6 +7,8 @@
 #ifndef _URKEL_INTERNAL_H
 #define _URKEL_INTERNAL_H
 
+#include <stdlib.h>
+
 /*
  * Clang Compat
  */
@@ -110,16 +112,6 @@
 #endif
 
 /*
- * Endianness
- */
-
-/* Any decent compiler should be able to optimize this out. */
-static const unsigned long __urkel_endian_check URKEL_UNUSED = 1;
-
-#define URKEL_BIGENDIAN \
-  (*((const unsigned char *)&__urkel_endian_check) == 0)
-
-/*
  * Helpers
  */
 
@@ -150,5 +142,24 @@ checked_realloc(void *ptr, size_t size) {
 
   return ptr;
 }
+
+/*
+ * Constants
+ */
+
+#define URKEL_HASH_SIZE 32
+#define URKEL_KEY_SIZE 32
+#define URKEL_KEY_BITS 256
+#define URKEL_VALUE_SIZE 1024
+
+/* 17958 */
+#define URKEL_PROOF_SIZE (0        \
+  + 2                              \
+  + 2                              \
+  + URKEL_KEY_SIZE                 \
+  + URKEL_KEY_BITS * (2 + 32 + 32) \
+  + 2                              \
+  + URKEL_VALUE_SIZE               \
+)
 
 #endif /* _URKEL_INTERNAL_H */

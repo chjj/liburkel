@@ -1,3 +1,12 @@
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include "bits.h"
+#include "internal.h"
+#include "io.h"
+#include "node.h"
+#include "util.h"
+
 /* Max read size on linux, and lower than off_t max. */
 #define MAX_FILE_SIZE 0x7ffff000 /* File max = 2 GB */
 #define MAX_FILES 0x7fff /* DB max = 64 TB. */
@@ -17,6 +26,68 @@ typedef struct urkel_meta_s {
   urkel_pointer_t root_ptr;
   urkel_node_t root_node;
 } urkel_meta_t;
+
+typedef struct urkel_slab_s {
+  uint64_t offset; /* Start position in file. */
+  uint32_t index; /* Current file index. */
+  size_t start; /* Where the current file starts in memory. */
+  size_t written; /* Current buffer position. */
+  unsigned char *data;
+  size_t size;
+  urkel_iovec_t *chunks;
+  size_t chunks_size;
+  size_t chunks_len;
+} urkel_slab_t;
+
+typedef struct urkel_file_s {
+  int fd;
+  uint32_t index;
+  uint64_t size;
+} urkel_file_t;
+
+typedef struct urkel_filemap_s {
+  urkel_file_t **items;
+  size_t size;
+  size_t len;
+} urkel_filemap_t;
+
+#define kh_inline URKEL_INLINE
+#define kh_unused URKEL_UNUSED
+#include "khash.h"
+
+#define urkel_cache_hash(k) urkel_murmur3(k, URKEL_HASH_SIZE, 0)
+#define urkel_cache_equal(a, b) (memcmp(a, b, URKEL_HASH_SIZE) == 0)
+
+KHASH_INIT(nodes,
+           const unsigned char *,
+           urkel_node_t *,
+           1,
+           urkel_cache_hash,
+           urkel_cache_equal)
+
+typedef struct urkel_cache_s {
+  khash_t(nodes) *map;
+} urkel_cache_t;
+
+typedef struct urkel_store_s {
+  char prefix[URKEL_PATH_SIZE];
+  size_t prefix_len;
+  unsigned char key[KEY_SIZE];
+  urkel_slab_t slab;
+  urkel_filemap_t files;
+  urkel_cache_t cache;
+  urkel_meta_t state;
+  urkel_meta_t last_meta;
+  int lock_fd;
+  uint32_t index;
+  urkel_file_t *current;
+} urkel_store_t;
+
+static urkel_file_t urkel_null_file = {-1, 0, 0};
+
+/*
+ * Meta
+ */
 
 static void
 urkel_meta_init(const urkel_meta_t *meta) {
@@ -63,17 +134,9 @@ urkel_meta_read(urkel_meta_t *meta,
   return memcmp(data, expect, 20) == 0;
 }
 
-typedef struct urkel_slab_s {
-  uint64_t offset; /* Start position in file. */
-  uint32_t index; /* Current file index. */
-  size_t start; /* Where the current file starts in memory. */
-  size_t written; /* Current buffer position. */
-  unsigned char *data;
-  size_t size;
-  urkel_iovec_t *chunks;
-  size_t chunks_size;
-  size_t chunks_len;
-} urkel_slab_t;
+/*
+ * Slab
+ */
 
 static void
 urkel_slab_init(urkel_slab_t *slab) {
@@ -181,19 +244,9 @@ urkel_slab_flush(urkel_slab_t *slab, urkel_iovec_t **chunks, size_t *count) {
   urkel_slab_reset(slab);
 }
 
-typedef struct urkel_file_s {
-  int fd;
-  uint32_t index;
-  uint64_t size;
-} urkel_file_t;
-
-static urkel_file_t urkel_null_file = {-1, 0, 0};
-
-typedef struct urkel_filemap_s {
-  urkel_file_t **items;
-  size_t size;
-  size_t len;
-} urkel_filemap_t;
+/*
+ * Filemap
+ */
 
 static void
 urkel_filemap_init(urkel_filemap_t *fm) {
@@ -264,24 +317,9 @@ urkel_filemap_remove(urkel_filemap_t *fm, size_t index) {
   return file;
 }
 
-#define kh_inline URKEL_INLINE
-#define kh_unused URKEL_UNUSED
-
-#include "khash.h"
-
-#define urkel_cache_hash(k) urkel_murmur3(k, URKEL_HASH_SIZE, 0)
-#define urkel_cache_equal(a, b) (memcmp(a, b, URKEL_HASH_SIZE) == 0)
-
-KHASH_INIT(nodes,
-           const unsigned char *,
-           urkel_node_t *,
-           1,
-           urkel_cache_hash,
-           urkel_cache_equal)
-
-typedef struct urkel_cache_s {
-  khash_t(nodes) *map;
-} urkel_cache_t;
+/*
+ * Cache
+ */
 
 static void
 urkel_cache_init(urkel_cache_t *cache) {
@@ -353,19 +391,9 @@ urkel_cache_insert(urkel_cache_t *cache, const urkel_node_t *node) {
   return 0;
 }
 
-typedef struct urkel_store_s {
-  char prefix[URKEL_PATH_SIZE];
-  size_t prefix_len;
-  unsigned char key[KEY_SIZE];
-  urkel_slab_t slab;
-  urkel_filemap_t files;
-  urkel_cache_t cache;
-  urkel_meta_t state;
-  urkel_meta_t last_meta;
-  int lock_fd;
-  uint32_t index;
-  urkel_file_t *current;
-} urkel_store_t;
+/*
+ * Store
+ */
 
 static void
 urkel_store_path(urkel_store_t *store, char *path, const char *name) {

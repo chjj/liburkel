@@ -2,8 +2,9 @@
 #include <stdint.h>
 #include <string.h>
 #include "bits.h"
-#include "bio.h"
+#include "internal.h"
 #include "nodes.h"
+#include "util.h"
 
 static urkel_node_t urkel_node_null = {
   URKEL_NODE_NULL,
@@ -35,8 +36,8 @@ urkel_pointer_write(const urkel_pointer_t *ptr, unsigned char *data) {
 
 void
 urkel_pointer_read(urkel_pointer_t *ptr, const unsigned char *data) {
-  size_t index = urkel_read16(data);
-  size_t pos = urkel_read32(data + 2);
+  uint32_t index = urkel_read16(data);
+  uint64_t pos = urkel_read32(data + 2);
   size_t size = urkel_read8(data + 6);
   size_t hi = index & 1;
   size_t lo = pos & 1;
@@ -440,7 +441,7 @@ urkel_node_value_equals(const urkel_node_t *node,
   return memcmp(leaf->value, value, size) == 0;
 }
 
-unsigned int
+static unsigned int
 urkel_node_flags(const urkel_node_t *node) {
   const urkel_internal_t *internal = &node->u.internal;
   const urkel_bits_t *prefix = &internal->prefix;

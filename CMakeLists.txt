@@ -161,6 +161,7 @@ endif()
 #
 
 set(urkel_sources src/bits.c
+                  src/blake2b.c
                   src/internal.c
                   src/io.c
                   src/nodes.c

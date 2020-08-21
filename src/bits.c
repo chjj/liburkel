@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "bits.h"
+#include "internal.h"
 
 void
 urkel_bits_init(urkel_bits_t *bits, size_t size) {
@@ -12,7 +13,7 @@ static size_t
 urkel_bits__count(const urkel_bits_t *bits,
                   size_t index,
                   const unsigned char *key,
-                  size_t depth) {
+                  unsigned int depth) {
   size_t x = bits->size - index;
   size_t y = URKEL_KEY_BITS - depth;
   size_t len = x < y ? x : y;
@@ -34,14 +35,14 @@ urkel_bits__count(const urkel_bits_t *bits,
 size_t
 urkel_bits_count(const urkel_bits_t *bits,
                   const unsigned char *key,
-                  size_t depth) {
+                  unsigned int depth) {
   return urkel_bits__count(bits, 0, key, depth);
 }
 
 int
 urkel_bits_has(const urkel_bits_t *bits,
                const unsigned char *key,
-               size_t depth) {
+               unsigned int depth) {
   return urkel_bits_count(bits, key, depth) == bits->size;
 }
 
@@ -72,7 +73,7 @@ void
 urkel_bits_collide(urkel_bits_t *out,
                    const urkel_bits_t *bits,
                    const unsigned char *key,
-                   size_t depth) {
+                   unsigned int depth) {
   size_t size = urkel_bits__count(bits, depth, key, depth);
 
   urkel_bits_slice(out, bits, depth, depth + size);
@@ -82,7 +83,7 @@ void
 urkel_bits_join(urkel_bits_t *out,
                 const urkel_bits_t *left,
                 const urkel_bits_t *right,
-                unsigned char bit) {
+                unsigned int bit) {
   size_t size = left->size + right->size + 1;
   size_t bytes = (left->size + 7) / 8;
   size_t i, j;

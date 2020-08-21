@@ -1,10 +1,10 @@
 static int
 urkel_tree_get(struct urkel_s *tree,
+               unsigned char *value,
+               size_t *size,
                const urkel_node_t *node,
                const unsigned char *key,
-               unsigned int depth,
-               unsigned char *value,
-               size_t *size) {
+               unsigned int depth) {
   switch (node->type) {
     case URKEL_NODE_NULL: {
       /* Empty (sub)tree. */
@@ -26,7 +26,7 @@ urkel_tree_get(struct urkel_s *tree,
       bit = urkel_get_bit(key, depth);
       node = urkel_node_get(node, bit);
 
-      return urkel_tree_get(tree, node, key, depth + 1, value, size);
+      return urkel_tree_get(tree, value, size, node, key, depth + 1);
     }
 
     case URKEL_NODE_LEAF: {
@@ -43,7 +43,7 @@ urkel_tree_get(struct urkel_s *tree,
 
       CHECK(rn != NULL);
 
-      ret = urkel_tree_get(tree, rn, key, depth, value, size);
+      ret = urkel_tree_get(tree, value, size, rn, key, depth);
 
       urkel_node_destroy(rn, 1);
 
@@ -265,10 +265,10 @@ urkel_tree_remove(struct urkel_s *tree,
 
 static int
 urkel_tree_prove(struct urkel_s *tree,
+                 urkel_proof_t *proof,
                  urkel_node_t *node,
                  const unsigned char *key,
-                 unsigned int depth,
-                 urkel_proof_t *proof) {
+                 unsigned int depth) {
   switch (node->type) {
     case URKEL_NODE_NULL: {
       proof->type = URKEL_TYPE_DEADEND;
@@ -306,7 +306,7 @@ urkel_tree_prove(struct urkel_s *tree,
 
       urkel_proof_push(proof, prefix, urkel_node_hash(y));
 
-      return urkel_tree_prove(tree, x, key, depth + 1, proof);
+      return urkel_tree_prove(tree, proof, x, key, depth + 1);
     }
 
     case URKEL_NODE_LEAF: {
@@ -342,7 +342,7 @@ urkel_tree_prove(struct urkel_s *tree,
       if (rn == NULL)
         return 0;
 
-      ret = urkel_tree_prove(tree, rn, key, depth, proof);
+      ret = urkel_tree_prove(tree, proof, rn, key, depth);
 
       urkel_node_destroy(rn, 1);
 
@@ -522,20 +522,47 @@ urkel_tx_clear(struct urkel_tx_s *tx) {
 }
 
 int
-urkel_tx_get(struct urkel_tx_s *tx,
-             const unsigned char *key,
-             unsigned char *value,
-             size_t *size) {
-  int ret = 0;
+urkel_tx_read(struct urkel_tx_s *tx,
+              unsigned char *value,
+              size_t *size,
+              const unsigned char *key) {
+  int ret;
 
   urkel_rwlock_rdlock(tx->tree->lock);
 
-  if (tx->root == NULL)
-    goto fail;
+  ret = urkel_tree_get(tx->tree, value, size, tx->root, key);
 
-  ret = urkel_tree_get(tx->tree, tx->root, key, value, size);
-fail:
   urkel_rwlock_unlock(tx->tree->lock);
+
+  return ret;
+}
+
+int
+urkel_tx_get(struct urkel_tx_s *tx,
+             unsigned char **value,
+             size_t *size,
+             const unsigned char *key) {
+  unsigned char raw[URKEL_VALUE_SIZE];
+  size_t len;
+  int ret;
+
+  urkel_rwlock_rdlock(tx->tree->lock);
+
+  ret = urkel_tree_get(tx->tree, raw, &len, tx->root, key);
+
+  if (ret) {
+    *value = checked_malloc(len);
+    *size = len;
+
+    if (len > 0)
+      memcpy(*value, raw, len);
+  } else {
+    *value = NULL;
+    *size = 0;
+  }
+
+  urkel_rwlock_unlock(tx->tree->lock);
+
   return ret;
 }
 
@@ -544,50 +571,47 @@ urkel_tx_insert(struct urkel_tx_s *tx,
                 const unsigned char *key,
                 const unsigned char *value,
                 size_t size) {
-  urkel_node_t *root = NULL;
+  urkel_node_t *root;
+
+  if (size > URKEL_VALUE_SIZE)
+    return NULL;
 
   urkel_rwlock_wrlock(tx->tree->lock);
-
-  if (tx->root == NULL)
-    goto fail;
 
   root = urkel_tree_insert(tx->tree, tx->root, key, value, size, 0);
 
   if (root)
     tx->root = root;
-fail:
+
   urkel_rwlock_unlock(tx->tree->lock);
+
   return root != NULL;
 }
 
 int
 urkel_tx_remove(struct urkel_tx_s *tx, const unsigned char *key) {
-  urkel_node_t *root = NULL;
+  urkel_node_t *root;
   unsigned int flag;
 
   urkel_rwlock_wrlock(tx->tree->lock);
-
-  if (tx->root == NULL)
-    goto fail;
 
   root = urkel_tree_remove(tx->tree, tx->root, key, 0, &flag);
 
   if (root)
     tx->root = root;
-fail:
+
   urkel_rwlock_unlock(tx->tree->lock);
+
   return root != NULL;
 }
 
 int
 urkel_tx_prove(struct urkel_tx_s *tx,
-               unsigned char *raw,
-               size_t *raw_len,
+               unsigned char **out,
+               size_t *out_len,
                const unsigned char *key) {
   urkel_proof_t proof;
-  int ret = 0;
-
-  urkel_proof_init(&proof);
+  int ret;
 
   if (tx->root->type == URKEL_NODE_NULL
       || tx->root->type == URKEL_NODE_HASH) {
@@ -596,15 +620,24 @@ urkel_tx_prove(struct urkel_tx_s *tx,
     urkel_rwlock_wrlock(tx->tree->lock);
   }
 
-  if (tx->root == NULL)
-    goto fail;
+  urkel_proof_init(&proof);
 
-  ret = urkel_tree_prove(tx->tree, tx->root, key, 0, &proof);
+  ret = urkel_tree_prove(tx->tree, &proof, tx->root, key, 0);
 
-  if (ret)
-    *raw_len = urkel_proof_write(proof, raw) - raw;
-fail:
+  if (ret) {
+    *out_len = urkel_proof_size(&proof);
+    *out = checked_malloc(*out_len);
+
+    urkel_proof_write(proof, *out);
+  } else {
+    *out_len = 0;
+    *out = NULL;
+  }
+
+  urkel_proof_uninit(&proof);
+
   urkel_rwlock_unlock(tx->tree->lock);
+
   return ret;
 }
 
@@ -613,9 +646,6 @@ urkel_tx_commit(struct urkel_tx_s *tx) {
   urkel_node_t *root = NULL;
 
   urkel_rwlock_wrlock(tx->tree->lock);
-
-  if (tx->root == NULL)
-    goto fail;
 
   if (tx->snapshot)
     goto fail;
@@ -629,8 +659,10 @@ urkel_tx_commit(struct urkel_tx_s *tx) {
     tx->root = root;
     tx->writes += 1;
   }
+
 fail:
   urkel_rwlock_unlock(tx->tree->lock);
+
   return root != NULL;
 }
 

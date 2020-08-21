@@ -1,4 +1,5 @@
-/* From libuv. */
+#undef HAVE_FLOCK
+
 #if defined(__ANDROID__)
 #  undef _GNU_SOURCE
 #  define _GNU_SOURCE
@@ -18,6 +19,7 @@
 #  undef _POSIX_C_SOURCE
 #  define _GNU_SOURCE
 #  define _POSIX_C_SOURCE 200112
+#  define HAVE_FLOCK
 #elif defined(_AIX) || defined(__OS400__)
 #  undef _ALL_SOURCE
 #  undef _LINUX_SOURCE_COMPAT
@@ -30,10 +32,8 @@
 #elif defined(__sun)
 #  undef __EXTENSIONS__
 #  undef _XOPEN_SOURCE
-#  undef _REENTRANT
 #  define __EXTENSIONS__
 #  define _XOPEN_SOURCE 500
-#  define _REENTRANT
 #endif
 
 #include <sys/types.h>
@@ -45,6 +45,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <dirent.h>
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
+#include <pthread.h>
+#endif
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>

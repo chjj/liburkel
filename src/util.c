@@ -1,25 +1,15 @@
-
-/*
- * Constants
- */
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include "bits.h"
+#include "blake2b.h"
+#include "internal.h"
+#include "io.h"
+#include "util.h"
 
 static const unsigned char SKIP_PREFIX[1] = {0x02};
 static const unsigned char INTERNAL_PREFIX[1] = {0x01};
 static const unsigned char LEAF_PREFIX[1] = {0x00};
-
-/*
- * Common
- */
-
-static URKEL_INLINE unsigned int
-urkel_get_bit(const unsigned char *key, size_t index) {
-  return (key[index >> 3] >> (7 - (index & 7))) & 1;
-}
-
-static URKEL_INLINE void
-urkel_set_bit(unsigned char *key, size_t index, unsigned int bit) {
-  key[index >> 3] |= bit << (7 - (index & 7));
-}
 
 void
 urkel_hash_internal(unsigned char *out,
@@ -28,34 +18,34 @@ urkel_hash_internal(unsigned char *out,
                     const unsigned char *right) {
   size_t bytes = (prefix->size + 7) / 8;
   unsigned char size[2];
-  blake2b_t ctx;
+  urkel_blake2b_t ctx;
 
-  blake2b_init(&ctx, URKEL_HASH_SIZE, NULL, 0);
+  urkel_blake2b_init(&ctx, URKEL_HASH_SIZE, NULL, 0);
 
   if (prefix->size == 0) {
-    blake2b_update(&ctx, INTERNAL_PREFIX, 1);
+    urkel_blake2b_update(&ctx, INTERNAL_PREFIX, 1);
   } else {
     urkel_write16(size, prefix->size);
-    blake2b_update(&ctx, SKIP_PREFIX, 1);
-    blake2b_update(&ctx, size, 2);
-    blake2b_update(&ctx, prefix->data, bytes);
+    urkel_blake2b_update(&ctx, SKIP_PREFIX, 1);
+    urkel_blake2b_update(&ctx, size, 2);
+    urkel_blake2b_update(&ctx, prefix->data, bytes);
   }
 
-  blake2b_update(&ctx, left, URKEL_HASH_SIZE);
-  blake2b_update(&ctx, right, URKEL_HASH_SIZE);
-  blake2b_final(&ctx, out);
+  urkel_blake2b_update(&ctx, left, URKEL_HASH_SIZE);
+  urkel_blake2b_update(&ctx, right, URKEL_HASH_SIZE);
+  urkel_blake2b_final(&ctx, out);
 }
 
 void
 urkel_hash_leaf(unsigned char *out,
                 const unsigned char *key,
                 const unsigned char *vhash) {
-  blake2b_t ctx;
-  blake2b_init(&ctx, URKEL_HASH_SIZE, NULL, 0);
-  blake2b_update(&ctx, LEAF_PREFIX, 1);
-  blake2b_update(&ctx, key, URKEL_KEY_SIZE);
-  blake2b_update(&ctx, vhash, URKEL_HASH_SIZE);
-  blake2b_final(&ctx, out);
+  urkel_blake2b_t ctx;
+  urkel_blake2b_init(&ctx, URKEL_HASH_SIZE, NULL, 0);
+  urkel_blake2b_update(&ctx, LEAF_PREFIX, 1);
+  urkel_blake2b_update(&ctx, key, URKEL_KEY_SIZE);
+  urkel_blake2b_update(&ctx, vhash, URKEL_HASH_SIZE);
+  urkel_blake2b_final(&ctx, out);
 }
 
 void
@@ -64,21 +54,21 @@ urkel_hash_value(unsigned char *out,
                  const unsigned char *value,
                  size_t size) {
   unsigned char vhash[URKEL_HASH_SIZE];
-  blake2b_t ctx;
+  urkel_blake2b_t ctx;
 
-  blake2b_init(&ctx, URKEL_HASH_SIZE, NULL, 0);
-  blake2b_update(&ctx, value, size);
-  blake2b_final(&ctx, vhash);
+  urkel_blake2b_init(&ctx, URKEL_HASH_SIZE, NULL, 0);
+  urkel_blake2b_update(&ctx, value, size);
+  urkel_blake2b_final(&ctx, vhash);
 
   urkel_hash_leaf(out, key, vhash);
 }
 
 void
 urkel_hash_key(unsigned char *out, const void *key, size_t size) {
-  blake2b_t ctx;
-  blake2b_init(&ctx, URKEL_KEY_SIZE, NULL, 0);
-  blake2b_update(&ctx, key, size);
-  blake2b_final(&ctx, out);
+  urkel_blake2b_t ctx;
+  urkel_blake2b_init(&ctx, URKEL_KEY_SIZE, NULL, 0);
+  urkel_blake2b_update(&ctx, key, size);
+  urkel_blake2b_final(&ctx, out);
 }
 
 int
@@ -137,7 +127,7 @@ urkel_random_bytes(unsigned char *dst, size_t len) {
   urkel_timespec_t ts;
   unsigned char hash[32];
   size_t max = 32;
-  blake2b_t ctx;
+  urkel_blake2b_t ctx;
 
   memset(&ts, 0, sizeof(ts));
 
@@ -147,9 +137,9 @@ urkel_random_bytes(unsigned char *dst, size_t len) {
     if (max > len)
       max = len;
 
-    blake2b_init(&ctx, 32, (unsigned char *)&len, sizeof(len));
-    blake2b_update(&ctx, &ts, sizeof(ts));
-    blake2b_final(&ctx, hash);
+    urkel_blake2b_init(&ctx, 32, (unsigned char *)&len, sizeof(len));
+    urkel_blake2b_update(&ctx, &ts, sizeof(ts));
+    urkel_blake2b_final(&ctx, hash);
 
     memcpy(dst, hash, max);
 
@@ -163,10 +153,10 @@ urkel_checksum(unsigned char *out,
                const unsigned char *data,
                size_t len,
                const unsigned char *key) {
-  blake2b_t ctx;
-  blake2b_init(&ctx, 20, key, 32);
-  blake2b_update(&ctx, data, len);
-  blake2b_final(&ctx, out);
+  urkel_blake2b_t ctx;
+  urkel_blake2b_init(&ctx, 20, key, 32);
+  urkel_blake2b_update(&ctx, data, len);
+  urkel_blake2b_final(&ctx, out);
   return out + 20;
 }
 

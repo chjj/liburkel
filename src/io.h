@@ -1,6 +1,7 @@
 #ifndef URKEL_IO_H_
 #define URKEL_IO_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define URKEL_O_RDONLY   (1 <<  0)
@@ -84,7 +85,6 @@ typedef struct urkel_iovec_s {
 typedef struct urkel_timespec_s {
   int64_t /* time_t */ tv_sec;
   uint32_t /* long */ tv_nsec;
-  uint32_t __reserved;
 } urkel_timespec_t;
 
 typedef struct urkel_stat_s {
@@ -109,11 +109,117 @@ typedef struct urkel_dirent_s {
 } urkel_dirent_t;
 
 struct urkel_mutex_s;
-
-typedef struct urkel_mutex_s urkel_mutex_t;
-
 struct urkel_rwlock_s;
 
+typedef struct urkel_mutex_s urkel_mutex_t;
 typedef struct urkel_rwlock_s urkel_rwlock_t;
+
+int
+urkel_fs_open(const char *name, int flags, uint32_t mode);
+
+int
+urkel_fs_stat(const char *name, urkel_stat_t *out);
+
+int
+urkel_fs_lstat(const char *name, urkel_stat_t *out);
+
+int
+urkel_fs_chmod(const char *name, uint32_t mode);
+
+int
+urkel_fs_truncate(const char *name, int64_t size);
+
+int
+urkel_fs_rename(const char *oldpath, const char *newpath);
+
+int
+urkel_fs_unlink(const char *name);
+
+int
+urkel_fs_mkdir(const char *name, uint32_t mode);
+
+int
+urkel_fs_rmdir(const char *name);
+
+int
+urkel_fs_scandir(const char *name, urkel_dirent_t ***out, size_t *count);
+
+int
+urkel_fs_fstat(int fd, urkel_stat_t *out);
+
+int64_t
+urkel_fs_seek(int fd, int64_t pos, int whence);
+
+int64_t
+urkel_fs_tell(int fd);
+
+int
+urkel_fs_read(int fd, void *dst, size_t len);
+
+int
+urkel_fs_write(int fd, const void *src, size_t len);
+
+int
+urkel_fs_pread(int fd, void *dst, size_t len, int64_t pos);
+
+int
+urkel_fs_pwrite(int fd, const void *src, size_t len, int64_t pos);
+
+int
+urkel_fs_ftruncate(int fd, int64_t size);
+
+int
+urkel_fs_fsync(int fd);
+
+int
+urkel_fs_fdatasync(int fd);
+
+int
+urkel_fs_flock(int fd, int operation);
+
+int
+urkel_fs_close(int fd);
+
+/*
+ * Mutex
+ */
+
+urkel_mutex_t *
+urkel_mutex_create(void);
+
+void
+urkel_mutex_destroy(urkel_mutex_t *mtx);
+
+void
+urkel_mutex_lock(urkel_mutex_t *mtx);
+
+void
+urkel_mutex_unlock(urkel_mutex_t *mtx);
+
+/*
+ * Read-Write Lock
+ */
+
+urkel_rwlock_t *
+urkel_rwlock_create(void);
+
+void
+urkel_rwlock_destroy(urkel_rwlock_t *mtx);
+
+void
+urkel_rwlock_wrlock(urkel_rwlock_t *mtx);
+
+void
+urkel_rwlock_rdlock(urkel_rwlock_t *mtx);
+
+void
+urkel_rwlock_unlock(urkel_rwlock_t *mtx);
+
+/*
+ * Time
+ */
+
+void
+urkel_time_get(urkel_timespec_t *ts);
 
 #endif /* URKEL_IO_H_ */
