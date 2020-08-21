@@ -24,12 +24,12 @@
  * Helpers
  */
 
-static TORSION_INLINE uint32_t
+static URKEL_INLINE uint32_t
 rotr32(uint32_t w, unsigned int c) {
   return (w >> c) | (w << (32 - c));
 }
 
-static TORSION_INLINE uint64_t
+static URKEL_INLINE uint64_t
 rotr64(uint64_t w, unsigned int c) {
   return (w >> c) | (w << (64 - c));
 }

@@ -123,7 +123,7 @@ __urkel_assert_fail(const char *file, int line, const char *expr);
 URKEL_NORETURN void
 __urkel_abort(void);
 
-static TORSION_INLINE void *
+static URKEL_INLINE void *
 checked_malloc(size_t size) {
   void *ptr = malloc(size);
 
@@ -133,7 +133,7 @@ checked_malloc(size_t size) {
   return ptr;
 }
 
-static TORSION_INLINE void *
+static URKEL_INLINE void *
 checked_realloc(void *ptr, size_t size) {
   ptr = realloc(ptr, size);
 

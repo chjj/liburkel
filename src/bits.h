@@ -26,7 +26,7 @@ urkel_bits_get(const urkel_bits_t *bits, size_t index) {
 
 static URKEL_INLINE void
 urkel_bits_set(urkel_bits_t *bits, size_t index, unsigned int bit) {
-  return urkel_set_bit(bits->data, index, bit);
+  urkel_set_bit(bits->data, index, bit);
 }
 
 void

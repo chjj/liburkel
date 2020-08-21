@@ -39,18 +39,25 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+
 #ifdef HAVE_FLOCK
 #include <sys/file.h>
 #endif
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <dirent.h>
+
 #if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
 #include <pthread.h>
 #endif
+
+#include <errno.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
+
 #include "io.h"
 
 /*
@@ -942,6 +949,10 @@ urkel_rwlock_unlock(struct urkel_rwlock_s *mtx) {
   return;
 }
 #else
+struct urkel_rwlock_s {
+  pthread_rwlock_t handle;
+};
+
 struct urkel_rwlock_s *
 urkel_rwlock_create(void) {
   struct urkel_rwlock_s *mtx = malloc(sizeof(struct urkel_rwlock_s));
@@ -995,6 +1006,6 @@ urkel_time_get(urkel_timespec_t *ts) {
   if (gettimeofday(&tv, NULL) != 0)
     abort();
 
-  ts->tv_sec = ts.tv_sec;
-  ts->tv_nsec = (uint32_t)ts.tv_usec * 1000;
+  ts->tv_sec = tv.tv_sec;
+  ts->tv_nsec = (uint32_t)tv.tv_usec * 1000;
 }

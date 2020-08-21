@@ -57,7 +57,7 @@ unsigned char *
 urkel_proof_write(const urkel_proof_t *proof, unsigned char *data);
 
 int
-urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t size);
+urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len);
 
 int
 urkel_proof_verify(const urkel_proof_t *proof,

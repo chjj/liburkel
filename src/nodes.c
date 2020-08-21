@@ -6,12 +6,7 @@
 #include "nodes.h"
 #include "util.h"
 
-static urkel_node_t urkel_node_null = {
-  URKEL_NODE_NULL,
-  URKEL_FLAG_HASHED | URKEL_FLAG_WRITTEN,
-  {0},
-  {0, 0, 0}
-};
+static urkel_node_t urkel_node_null;
 
 void
 urkel_pointer_init(urkel_pointer_t *ptr) {
@@ -277,10 +272,15 @@ urkel_node_create_internal(const urkel_bits_t *prefix,
   urkel_node_t *node = urkel_node_create(URKEL_NODE_INTERNAL);
   urkel_internal_t *internal = &node->u.internal;
 
-  memcpy(internal->prefix, prefix, sizeof(*prefix));
+  internal->prefix = *prefix;
 
-  urkel_node_set(node, bit ^ 0, x);
-  urkel_node_set(node, bit ^ 1, y);
+  if (bit) {
+    internal->left = y;
+    internal->right = x;
+  } else {
+    internal->left = x;
+    internal->right = y;
+  }
 
   return node;
 }
@@ -288,7 +288,6 @@ urkel_node_create_internal(const urkel_bits_t *prefix,
 urkel_node_t *
 urkel_node_create_leaf(const unsigned char *data, size_t size) {
   urkel_node_t *node = urkel_node_create(URKEL_NODE_LEAF);
-  urkel_leaf_t *leaf = &node->u.leaf;
 
   urkel_node_store(node, data, size);
   urkel_node_hash(node);
@@ -494,7 +493,7 @@ urkel_node_size(const urkel_node_t *node) {
 
     case URKEL_NODE_LEAF: {
       size += 1;
-      size += URKEL_PTR_SIZE
+      size += URKEL_PTR_SIZE;
       size += URKEL_KEY_SIZE;
       break;
     }

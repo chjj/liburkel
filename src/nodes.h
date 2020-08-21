@@ -24,6 +24,8 @@
   + 2 * (URKEL_PTR_SIZE + URKEL_HASH_SIZE) \
 )
 
+struct urkel_node_s;
+
 typedef struct urkel_pointer_s {
   uint32_t index;
   uint64_t pos;
@@ -32,8 +34,8 @@ typedef struct urkel_pointer_s {
 
 typedef struct urkel_internal_s {
   urkel_bits_t prefix;
-  urkel_node_t *left;
-  urkel_node_t *right;
+  struct urkel_node_s *left;
+  struct urkel_node_s *right;
 } urkel_internal_t;
 
 typedef struct urkel_leaf_s {

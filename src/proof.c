@@ -39,6 +39,7 @@ urkel_proof_push(urkel_proof_t *proof,
 size_t
 urkel_proof_size(const urkel_proof_t *proof) {
   size_t size = 0;
+  size_t i;
 
   size += 2;
   size += 2;
@@ -96,7 +97,7 @@ urkel_proof_write(const urkel_proof_t *proof, unsigned char *data) {
       data = urkel_bits_write(&node->prefix, data);
     }
 
-    memcmpy(data, node->hash, URKEL_HASH_SIZE);
+    memcpy(data, node->hash, URKEL_HASH_SIZE);
     data += URKEL_HASH_SIZE;
   }
 
@@ -148,7 +149,7 @@ urkel_proof_write(const urkel_proof_t *proof, unsigned char *data) {
 }
 
 int
-urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t size) {
+urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
   size_t i, count, bsize, size;
   const unsigned char *bits;
   unsigned char hash[32];
@@ -183,8 +184,6 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t size) {
   len -= bsize;
 
   for (i = 0; i < count; i++) {
-    urkel_bits_init(&prefix);
-
     if (urkel_get_bit(bits, i)) {
       if (!urkel_bits_read(&prefix, data, len))
         return 0;
@@ -193,6 +192,8 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t size) {
         return 0;
 
       data += urkel_bits_size(&prefix);
+    } else {
+      urkel_bits_init(&prefix, 0);
     }
 
     if (len < URKEL_HASH_SIZE)
@@ -213,7 +214,7 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t size) {
       if (!urkel_bits_read(&proof->prefix, data, len))
         return 0;
 
-      if (proof->prefix.size === 0 || proof->prefix.size > URKEL_KEY_BITS)
+      if (proof->prefix.size == 0 || proof->prefix.size > URKEL_KEY_BITS)
         return 0;
 
       data += urkel_bits_size(&proof->prefix);
@@ -298,10 +299,10 @@ urkel_proof_is_sane(const urkel_proof_t *proof) {
     }
 
     case URKEL_TYPE_SHORT: {
-      if (proof->prefix.size === 0)
+      if (proof->prefix.size == 0)
         return 0;
 
-      if (proof->prefix.size > bits)
+      if (proof->prefix.size > URKEL_KEY_BITS)
         return 0;
 
       if (proof->size > 0)

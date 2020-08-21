@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include "bits.h"
+#include "internal.h"
 
 void
 urkel_hash_internal(unsigned char *out,
@@ -43,20 +45,20 @@ urkel_checksum(unsigned char *out,
 uint32_t
 urkel_murmur3(const unsigned char *data, size_t len, uint32_t seed);
 
-static TORSION_INLINE uint8_t *
+static URKEL_INLINE uint8_t *
 urkel_write8(uint8_t *dst, uint8_t word) {
   dst[0] = word;
   return dst + 1;
 }
 
-static TORSION_INLINE uint8_t *
+static URKEL_INLINE uint8_t *
 urkel_write16(uint8_t *dst, uint16_t word) {
   dst[0] = word >> 0;
   dst[1] = word >> 8;
   return dst + 2;
 }
 
-static TORSION_INLINE uint8_t *
+static URKEL_INLINE uint8_t *
 urkel_write32(uint8_t *dst, uint32_t word) {
   dst[0] = word >>  0;
   dst[1] = word >>  8;
@@ -65,7 +67,7 @@ urkel_write32(uint8_t *dst, uint32_t word) {
   return dst + 4;
 }
 
-static TORSION_INLINE uint8_t *
+static URKEL_INLINE uint8_t *
 urkel_write64(uint8_t *dst, uint64_t word) {
   dst[0] = word >>  0;
   dst[1] = word >>  8;
@@ -78,7 +80,7 @@ urkel_write64(uint8_t *dst, uint64_t word) {
   return dst + 8;
 }
 
-static TORSION_INLINE unsigned char *
+static URKEL_INLINE unsigned char *
 urkel_write(unsigned char *dst, const unsigned char *src, size_t size) {
   if (size > 0)
     memcpy(dst, src, size);
@@ -86,18 +88,18 @@ urkel_write(unsigned char *dst, const unsigned char *src, size_t size) {
   return dst + size;
 }
 
-static TORSION_INLINE uint8_t
+static URKEL_INLINE uint8_t
 urkel_read8(const uint8_t *src) {
   return src[0];
 }
 
-static TORSION_INLINE uint16_t
+static URKEL_INLINE uint16_t
 urkel_read16(const uint8_t *src) {
   return ((uint16_t)src[1] << 8)
        | ((uint16_t)src[0] << 0);
 }
 
-static TORSION_INLINE uint32_t
+static URKEL_INLINE uint32_t
 urkel_read32(const uint8_t *src) {
   return ((uint32_t)src[3] << 24)
        | ((uint32_t)src[2] << 16)
@@ -105,7 +107,7 @@ urkel_read32(const uint8_t *src) {
        | ((uint32_t)src[0] << 0);
 }
 
-static TORSION_INLINE uint64_t
+static URKEL_INLINE uint64_t
 urkel_read64(const uint8_t *src) {
   return ((uint64_t)src[7] << 56)
        | ((uint64_t)src[6] << 48)
@@ -117,7 +119,7 @@ urkel_read64(const uint8_t *src) {
        | ((uint64_t)src[0] <<  0);
 }
 
-static TORSION_INLINE void
+static URKEL_INLINE void
 urkel_read(unsigned char *dst, const unsigned char *src, size_t size) {
   if (size > 0)
     memcpy(dst, src, size);
