@@ -467,14 +467,14 @@ urkel_close(struct urkel_s *tree) {
 struct urkel_tx_s *tx
 urkel_tx_create(struct urkel_s *tree, const unsigned char *hash) {
   struct urkel_tx_s *tx = checked_malloc(sizeof(struct urkel_tx_s));
-  unsigned char *root_hash;
+  const unsigned char *root_hash;
 
   urkel_rwlock_rdlock(tree->lock);
 
   tx->tree = tree;
 
   if (hash) {
-    root_hash = tree->store.state.root_node.hash;
+    root_hash = urkel_store_root_hash(&tree->store);
     tx->root = urkel_store_get_history(&tree->store, hash);
     tx->snapshot = memcmp(hash, root_hash) != 0;
   } else {

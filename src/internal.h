@@ -111,6 +111,9 @@
 #  define URKEL_UNUSED
 #endif
 
+#define kh_inline URKEL_INLINE
+#define kh_unused URKEL_UNUSED
+
 /*
  * Helpers
  */
