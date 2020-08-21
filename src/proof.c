@@ -1,4 +1,3 @@
-
 #define URKEL_TYPE_DEADEND 0
 #define URKEL_TYPE_SHORT 1
 #define URKEL_TYPE_COLLISION 2
@@ -46,7 +45,7 @@ urkel_proof_uninit(urkel_proof_t *proof) {
     free(proof->nodes[i]);
 
   proof->nodes_len = 0;
-//}
+}
 
 void
 urkel_proof_push(urkel_proof_t *proof,
@@ -439,5 +438,3 @@ urkel_proof_verify(const urkel_proof_t *proof,
 
   return URKEL_PROOF_OK;
 }
-
-

@@ -1,9 +1,3 @@
-
-
-/*
- * Constants
- */
-
 /* Max read size on linux, and lower than off_t max. */
 #define MAX_FILE_SIZE 0x7ffff000 /* File max = 2 GB */
 #define MAX_FILES 0x7fff /* DB max = 64 TB. */
