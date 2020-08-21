@@ -301,8 +301,8 @@ urkel_cache_uninit(urkel_cache_t *cache) {
   khiter_t iter = kh_begin(cache->map);
   urkel_node_t *node;
 
-	for (; iter != kh_end(cache->map); iter++) {
-		if (kh_exist(cache->map, iter)) {
+  for (; iter != kh_end(cache->map); iter++) {
+    if (kh_exist(cache->map, iter)) {
       node = kh_value(cache->map, iter);
 
       if (node)
