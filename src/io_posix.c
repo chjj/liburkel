@@ -478,7 +478,13 @@ urkel_fs_lstat(const char *name, urkel_stat_t *out) {
 
 int
 urkel_fs_chmod(const char *name, uint32_t mode) {
+#if defined(__wasi__)
+  (void)name;
+  (void)mode;
+  return 1;
+#else
   return chmod(name, urkel_fs__mode_api_to_os(mode)) == 0;
+#endif
 }
 
 int
@@ -614,6 +620,10 @@ urkel_fs_fstat(int fd, urkel_stat_t *out) {
 
   return 0;
 }
+
+#ifdef __wasi__
+#  pragma GCC diagnostic ignored "-Wgnu-statement-expression"
+#endif
 
 int64_t
 urkel_fs_seek(int fd, int64_t pos, int whence) {
@@ -833,6 +843,8 @@ urkel_fs_flock(int fd, int operation) {
 
   return fcntl(fd, F_SETLK, &fl) == 0;
 #else
+  (void)fd;
+  (void)operation;
   return 1;
 #endif
 }
@@ -942,12 +954,12 @@ urkel_mutex_destroy(struct urkel_mutex_s *mtx) {
 
 void
 urkel_mutex_lock(struct urkel_mutex_s *mtx) {
-  return;
+  (void)mtx;
 }
 
 void
 urkel_mutex_unlock(struct urkel_mutex_s *mtx) {
-  return;
+  (void)mtx;
 }
 #else
 struct urkel_mutex_s {
@@ -1016,17 +1028,17 @@ urkel_rwlock_destroy(struct urkel_rwlock_s *mtx) {
 
 void
 urkel_rwlock_wrlock(struct urkel_rwlock_s *mtx) {
-  return;
+  (void)mtx;
 }
 
 void
 urkel_rwlock_rdlock(struct urkel_rwlock_s *mtx) {
-  return;
+  (void)mtx;
 }
 
 void
 urkel_rwlock_unlock(struct urkel_rwlock_s *mtx) {
-  return;
+  (void)mtx;
 }
 #else
 struct urkel_rwlock_s {

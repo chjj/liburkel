@@ -19,7 +19,10 @@ const module_ = new WebAssembly.Module(code);
 
 const wasi = new WASI({
   args: process.argv.slice(2),
-  env: process.env
+  env: process.env,
+  preopens: {
+    '/': process.cwd()
+  }
 });
 
 const instance = new WebAssembly.Instance(module_, {
