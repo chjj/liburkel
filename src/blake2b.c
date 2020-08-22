@@ -24,11 +24,6 @@
  * Helpers
  */
 
-static URKEL_INLINE uint32_t
-rotr32(uint32_t w, unsigned int c) {
-  return (w >> c) | (w << (32 - c));
-}
-
 static URKEL_INLINE uint64_t
 rotr64(uint64_t w, unsigned int c) {
   return (w >> c) | (w << (64 - c));
