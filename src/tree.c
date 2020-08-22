@@ -215,6 +215,8 @@ urkel_tree_insert(tree_db_t *tree,
 
       CHECK(rn != NULL);
 
+      urkel_node_destroy(node, 0);
+
       return urkel_tree_insert(tree, rn, key, value, size, depth);
     }
 
@@ -242,7 +244,7 @@ urkel_tree_remove(tree_db_t *tree,
     case URKEL_NODE_INTERNAL: {
       urkel_internal_t *internal = &node->u.internal;
       urkel_bits_t *prefix = &internal->prefix;
-      urkel_node_t *x, *y, *z;
+      urkel_node_t *x, *y, *z, *out;
       unsigned int bit, found;
 
       CHECK(depth != URKEL_KEY_BITS);
@@ -262,7 +264,6 @@ urkel_tree_remove(tree_db_t *tree,
 
       if (found) {
         urkel_node_t *side = urkel_store_resolve(tree->store, y);
-        urkel_node_t *out;
 
         CHECK(side != NULL);
 
@@ -272,8 +273,7 @@ urkel_tree_remove(tree_db_t *tree,
 
           urkel_bits_join(&pre, prefix, &si->prefix, bit ^ 1);
 
-          out = urkel_node_create_internal(&pre, si->left,
-                                                 si->right, 0);
+          out = urkel_node_create_internal(&pre, si->left, si->right, 0);
 
           urkel_node_destroy(side, 0);
         } else {
@@ -290,14 +290,16 @@ urkel_tree_remove(tree_db_t *tree,
         return out;
       }
 
+      out = urkel_node_create_internal(prefix, z, y, bit);
+
       urkel_node_destroy(node, 0);
 
-      return urkel_node_create_internal(prefix, z, y, bit);
+      return out;
     }
 
     case URKEL_NODE_LEAF: {
       /* Not our key. */
-      if (urkel_node_key_equals(node, key))
+      if (!urkel_node_key_equals(node, key))
         return NULL;
 
       *flag = 1;
@@ -311,6 +313,8 @@ urkel_tree_remove(tree_db_t *tree,
       urkel_node_t *rn = urkel_store_resolve(tree->store, node);
 
       CHECK(rn != NULL);
+
+      urkel_node_destroy(node, 0);
 
       return urkel_tree_remove(tree, rn, key, depth, flag);
     }
@@ -466,7 +470,7 @@ urkel_tree_write(tree_db_t *tree, urkel_node_t *node) {
 
     default: {
       urkel_abort();
-      break;
+      return NULL;
     }
   }
 }
@@ -524,6 +528,11 @@ urkel_close(tree_db_t *tree) {
 int
 urkel_destroy(const char *prefix) {
   return urkel_store_destroy(prefix);
+}
+
+void
+urkel_hash(unsigned char *hash, const void *data, size_t size) {
+  urkel_hash_key(hash, data, size);
 }
 
 void

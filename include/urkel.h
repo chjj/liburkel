@@ -58,6 +58,9 @@ URKEL_EXTERN int
 urkel_destroy(const char *prefix);
 
 URKEL_EXTERN void
+urkel_hash(unsigned char *hash, const void *data, size_t size);
+
+URKEL_EXTERN void
 urkel_root(urkel_t *tree, unsigned char *hash);
 
 URKEL_EXTERN int

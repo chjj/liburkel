@@ -679,6 +679,9 @@ urkel_node_read(urkel_node_t *node, const unsigned char *data, size_t len) {
       urkel_read(right->hash, data, URKEL_HASH_SIZE);
       data += URKEL_HASH_SIZE;
 
+      left->flags |= URKEL_FLAG_WRITTEN;
+      right->flags |= URKEL_FLAG_WRITTEN;
+
       internal->left = left;
       internal->right = right;
 
