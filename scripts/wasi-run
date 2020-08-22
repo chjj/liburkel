@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# wasi-run - wasi runner for liburkel
+# Copyright (c) 2020, Christopher Jeffrey (MIT License).
+# https://github.com/handshake-org/liburkel
+
+set -e
+
+DIR=`dirname "$0"`
+
+if test -n "$NODEJS"; then
+  true
+elif type nodejs > /dev/null 2>& 1; then
+  NODEJS=nodejs
+elif type node > /dev/null 2>& 1; then
+  NODEJS=node
+else
+  echo 'Node.js not found!' >& 2
+  exit 1
+fi
+
+exec "$NODEJS" --no-warnings                         \
+               --experimental-wasm-bigint            \
+               --experimental-wasi-unstable-preview1 \
+               "$DIR/wasi.js"                        \
+               "$@"
