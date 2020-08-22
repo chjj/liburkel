@@ -612,7 +612,7 @@ void
 urkel_close(tree_db_t *tree) {
   urkel_rwlock_wrlock(tree->lock);
   urkel_store_close(tree->store);
-  urkel_rwlock_unlock(tree->lock);
+  urkel_rwlock_wrunlock(tree->lock);
   urkel_rwlock_destroy(tree->lock);
 
   free(tree);
@@ -634,7 +634,7 @@ urkel_root(tree_db_t *tree, unsigned char *hash) {
 
   memcpy(hash, tree->hash, URKEL_HASH_SIZE);
 
-  urkel_rwlock_unlock(tree->lock);
+  urkel_rwlock_rdunlock(tree->lock);
 }
 
 int
@@ -642,7 +642,7 @@ urkel_inject(tree_db_t *tree, const unsigned char *hash) {
   urkel_rwlock_wrlock(tree->lock);
 
   if (!urkel_store_has_history(tree->store, hash)) {
-    urkel_rwlock_unlock(tree->lock);
+    urkel_rwlock_wrunlock(tree->lock);
     urkel_errno = URKEL_ENOTFOUND;
     return 0;
   }
@@ -651,7 +651,7 @@ urkel_inject(tree_db_t *tree, const unsigned char *hash) {
 
   tree->revert = 1;
 
-  urkel_rwlock_unlock(tree->lock);
+  urkel_rwlock_wrunlock(tree->lock);
 
   return 1;
 }
@@ -826,7 +826,7 @@ urkel_tx_create(tree_db_t *tree, const unsigned char *hash) {
     tx = NULL;
   }
 
-  urkel_rwlock_unlock(tree->lock);
+  urkel_rwlock_rdunlock(tree->lock);
 
   return tx;
 }
@@ -840,7 +840,7 @@ urkel_tx_destroy(tree_tx_t *tx) {
     tx->root = NULL;
   }
 
-  urkel_rwlock_unlock(tx->tree->lock);
+  urkel_rwlock_wrunlock(tx->tree->lock);
 
   free(tx);
 }
@@ -851,7 +851,7 @@ urkel_tx_clear(tree_tx_t *tx) {
 
   tx->root = urkel_store_get_root(tx->tree->store);
 
-  urkel_rwlock_unlock(tx->tree->lock);
+  urkel_rwlock_rdunlock(tx->tree->lock);
 }
 
 void
@@ -868,14 +868,14 @@ urkel_tx_inject(tree_tx_t *tx, const unsigned char *hash) {
   root = urkel_store_get_history(tx->tree->store, hash);
 
   if (root == NULL) {
-    urkel_rwlock_unlock(tx->tree->lock);
+    urkel_rwlock_wrunlock(tx->tree->lock);
     urkel_errno = URKEL_ENOTFOUND;
     return 0;
   }
 
   tx->root = root;
 
-  urkel_rwlock_unlock(tx->tree->lock);
+  urkel_rwlock_wrunlock(tx->tree->lock);
 
   return 1;
 }
@@ -894,7 +894,7 @@ urkel_tx_get(tree_tx_t *tx,
   if (!ret)
     *size = 0;
 
-  urkel_rwlock_unlock(tx->tree->lock);
+  urkel_rwlock_rdunlock(tx->tree->lock);
 
   return ret;
 }
@@ -907,7 +907,7 @@ urkel_tx_has(tree_tx_t *tx, const unsigned char *key) {
 
   ret = urkel_tree_get(tx->tree, NULL, NULL, tx->root, key, 0);
 
-  urkel_rwlock_unlock(tx->tree->lock);
+  urkel_rwlock_rdunlock(tx->tree->lock);
 
   return ret;
 }
@@ -929,7 +929,7 @@ urkel_tx_insert(tree_tx_t *tx,
   if (root != NULL)
     tx->root = root;
 
-  urkel_rwlock_unlock(tx->tree->lock);
+  urkel_rwlock_wrunlock(tx->tree->lock);
 
   return root != NULL || urkel_errno == URKEL_ENOUPDATE;
 }
@@ -946,7 +946,7 @@ urkel_tx_remove(tree_tx_t *tx, const unsigned char *key) {
   if (root != NULL)
     tx->root = root;
 
-  urkel_rwlock_unlock(tx->tree->lock);
+  urkel_rwlock_wrunlock(tx->tree->lock);
 
   return root != NULL;
 }
@@ -957,14 +957,15 @@ urkel_tx_prove(tree_tx_t *tx,
                size_t *proof_len,
                const unsigned char *key) {
   urkel_proof_t proof;
-  int ret;
+  int read_lock, ret;
 
-  if (tx->root->type == URKEL_NODE_NULL
-      || tx->root->type == URKEL_NODE_HASH) {
+  read_lock = tx->root->type == URKEL_NODE_NULL
+           || tx->root->type == URKEL_NODE_HASH;
+
+  if (read_lock)
     urkel_rwlock_rdlock(tx->tree->lock);
-  } else {
+  else
     urkel_rwlock_wrlock(tx->tree->lock);
-  }
 
   urkel_proof_init(&proof);
 
@@ -982,7 +983,10 @@ urkel_tx_prove(tree_tx_t *tx,
 
   urkel_proof_uninit(&proof);
 
-  urkel_rwlock_unlock(tx->tree->lock);
+  if (read_lock)
+    urkel_rwlock_rdunlock(tx->tree->lock);
+  else
+    urkel_rwlock_wrunlock(tx->tree->lock);
 
   return ret;
 }
@@ -998,7 +1002,7 @@ urkel_tx_commit(tree_tx_t *tx) {
   if (root != NULL)
     tx->root = root;
 
-  urkel_rwlock_unlock(tx->tree->lock);
+  urkel_rwlock_wrunlock(tx->tree->lock);
 
   return root != NULL;
 }
@@ -1034,7 +1038,7 @@ urkel_iter_destroy(tree_iter_t *iter) {
       urkel_node_destroy(state->node, 1);
   }
 
-  urkel_rwlock_unlock(iter->tree->lock);
+  urkel_rwlock_rdunlock(iter->tree->lock);
 
   if (iter->tx != NULL)
     urkel_tx_destroy(iter->tx);

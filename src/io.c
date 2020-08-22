@@ -16,7 +16,7 @@
 
 int
 urkel_fs_read_file(const char *name, void *dst, size_t len) {
-  int fd = urkel_fs_open(name, URKEL_O_RDONLY, 0);
+  int fd = urkel_fs_open(name, URKEL_O_RDONLY | URKEL_O_SEQUENTIAL, 0);
   int ret = 0;
 
   if (fd == -1)
@@ -50,28 +50,6 @@ urkel_fs_write_file(const char *name,
 fail:
   urkel_fs_close(fd);
   return ret;
-}
-
-int
-urkel_fs_open_lock(const char *name, uint32_t mode) {
-  int flags = URKEL_O_RDWR | URKEL_O_CREAT | URKEL_O_TRUNC;
-  int fd = urkel_fs_open(name, flags, mode);
-
-  if (fd == -1)
-    return -1;
-
-  if (!urkel_fs_flock(fd, URKEL_LOCK_EX)) {
-    urkel_fs_close(fd);
-    return -1;
-  }
-
-  return fd;
-}
-
-void
-urkel_fs_close_lock(int fd) {
-  urkel_fs_flock(fd, URKEL_LOCK_UN);
-  urkel_fs_close(fd);
 }
 
 int

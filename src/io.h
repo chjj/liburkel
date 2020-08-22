@@ -14,18 +14,21 @@
  * Defines
  */
 
-#define URKEL_O_RDONLY   (1 <<  0)
-#define URKEL_O_WRONLY   (1 <<  1)
-#define URKEL_O_RDWR     (1 <<  2)
-#define URKEL_O_APPEND   (1 <<  3)
-#define URKEL_O_CREAT    (1 <<  4)
-#define URKEL_O_DSYNC    (1 <<  5)
-#define URKEL_O_EXCL     (1 <<  6)
-#define URKEL_O_NOCTTY   (1 <<  7)
-#define URKEL_O_NONBLOCK (1 <<  8)
-#define URKEL_O_RSYNC    (1 <<  9)
-#define URKEL_O_SYNC     (1 << 10)
-#define URKEL_O_TRUNC    (1 << 11)
+#define URKEL_O_RDONLY     (1 <<  0)
+#define URKEL_O_WRONLY     (1 <<  1)
+#define URKEL_O_RDWR       (1 <<  2)
+#define URKEL_O_APPEND     (1 <<  3)
+#define URKEL_O_CREAT      (1 <<  4)
+#define URKEL_O_DSYNC      (1 <<  5)
+#define URKEL_O_EXCL       (1 <<  6)
+#define URKEL_O_NOCTTY     (1 <<  7)
+#define URKEL_O_NONBLOCK   (1 <<  8)
+#define URKEL_O_RSYNC      (1 <<  9)
+#define URKEL_O_SYNC       (1 << 10)
+#define URKEL_O_TRUNC      (1 << 11)
+#define URKEL_O_EXLOCK     (1 << 12)
+#define URKEL_O_SEQUENTIAL (1 << 13)
+#define URKEL_O_RANDOM     (1 << 14)
 
 #define URKEL_S_IFMT   00170000
 #define URKEL_S_IFBLK  0060000
@@ -108,6 +111,7 @@ typedef struct urkel_stat_s {
   urkel_timespec_t /* time_t */ st_atim;
   urkel_timespec_t /* time_t */ st_mtim;
   urkel_timespec_t /* time_t */ st_ctim;
+  urkel_timespec_t /* time_t */ st_birthtim;
   int64_t /* blksize_t */ st_blksize;
   int64_t /* blkcnt_t */ st_blocks;
 } urkel_stat_t;
@@ -193,6 +197,12 @@ urkel_fs_flock(int fd, int operation);
 int
 urkel_fs_close(int fd);
 
+int
+urkel_fs_open_lock(const char *name, uint32_t mode);
+
+void
+urkel_fs_close_lock(int fd);
+
 /*
  * Process
  */
@@ -244,10 +254,13 @@ void
 urkel_rwlock_wrlock(urkel_rwlock_t *mtx);
 
 void
+urkel_rwlock_wrunlock(urkel_rwlock_t *mtx);
+
+void
 urkel_rwlock_rdlock(urkel_rwlock_t *mtx);
 
 void
-urkel_rwlock_unlock(urkel_rwlock_t *mtx);
+urkel_rwlock_rdunlock(urkel_rwlock_t *mtx);
 
 /*
  * Time
@@ -268,12 +281,6 @@ urkel_fs_write_file(const char *name,
                     uint32_t mode,
                     const void *dst,
                     size_t len);
-
-int
-urkel_fs_open_lock(const char *name, uint32_t mode);
-
-void
-urkel_fs_close_lock(int fd);
 
 int
 urkel_fs_exists(const char *name);

@@ -385,6 +385,8 @@ urkel_fs__convert_stat(urkel_stat_t *dst, const struct stat *src) {
   dst->st_mtim.tv_nsec = src->st_mtimespec.tv_nsec;
   dst->st_ctim.tv_sec = src->st_ctimespec.tv_sec;
   dst->st_ctim.tv_nsec = src->st_ctimespec.tv_nsec;
+  dst->st_birthtim.tv_sec = src->st_birthtimespec.tv_sec;
+  dst->st_birthtim.tv_nsec = src->st_birthtimespec.tv_nsec;
 #elif defined(__ANDROID__)
   dst->st_atim.tv_sec = src->st_atime;
   dst->st_atim.tv_nsec = src->st_atimensec;
@@ -392,6 +394,8 @@ urkel_fs__convert_stat(urkel_stat_t *dst, const struct stat *src) {
   dst->st_mtim.tv_nsec = src->st_mtimensec;
   dst->st_ctim.tv_sec = src->st_ctime;
   dst->st_ctim.tv_nsec = src->st_ctimensec;
+  dst->st_birthtim.tv_sec = src->st_ctime;
+  dst->st_birthtim.tv_nsec = src->st_ctimensec;
 #elif !defined(_AIX) && (defined(__DragonFly__)    \
                       || defined(__FreeBSD__)      \
                       || defined(__OpenBSD__)      \
@@ -407,6 +411,13 @@ urkel_fs__convert_stat(urkel_stat_t *dst, const struct stat *src) {
   dst->st_mtim.tv_nsec = src->st_mtim.tv_nsec;
   dst->st_ctim.tv_sec = src->st_ctim.tv_sec;
   dst->st_ctim.tv_nsec = src->st_ctim.tv_nsec;
+#if defined(__FreeBSD__) || defined(__NetBSD__)
+  dst->st_birthtim.tv_sec = src->st_birthtim.tv_sec;
+  dst->st_birthtim.tv_nsec = src->st_birthtim.tv_nsec;
+#else
+  dst->st_birthtim.tv_sec = src->st_ctim.tv_sec;
+  dst->st_birthtim.tv_nsec = src->st_ctim.tv_nsec;
+#endif
 #else
   dst->st_atim.tv_sec = src->st_atime;
   dst->st_atim.tv_nsec = 0;
@@ -414,6 +425,8 @@ urkel_fs__convert_stat(urkel_stat_t *dst, const struct stat *src) {
   dst->st_mtim.tv_nsec = 0;
   dst->st_ctim.tv_sec = src->st_ctime;
   dst->st_ctim.tv_nsec = 0;
+  dst->st_birthtim.tv_sec = src->st_ctime;
+  dst->st_birthtim.tv_nsec = 0;
 #endif
   dst->st_blksize = src->st_blksize;
   dst->st_blocks = src->st_blocks;
@@ -880,6 +893,28 @@ urkel_fs_close(int fd) {
   return close(fd) == 0;
 }
 
+int
+urkel_fs_open_lock(const char *name, uint32_t mode) {
+  int flags = URKEL_O_RDWR | URKEL_O_CREAT | URKEL_O_TRUNC;
+  int fd = urkel_fs_open(name, flags, mode);
+
+  if (fd == -1)
+    return -1;
+
+  if (!urkel_fs_flock(fd, URKEL_LOCK_EX)) {
+    urkel_fs_close(fd);
+    return -1;
+  }
+
+  return fd;
+}
+
+void
+urkel_fs_close_lock(int fd) {
+  urkel_fs_flock(fd, URKEL_LOCK_UN);
+  urkel_fs_close(fd);
+}
+
 /*
  * Process
  */
@@ -1074,6 +1109,15 @@ urkel_rwlock_wrlock(urkel__rwlock_t *mtx) {
 }
 
 void
+urkel_rwlock_wrunlock(urkel__rwlock_t *mtx) {
+  (void)mtx;
+#ifdef HAVE_PTHREAD
+  if (pthread_rwlock_unlock(&mtx->handle) != 0)
+    abort();
+#endif
+}
+
+void
 urkel_rwlock_rdlock(urkel__rwlock_t *mtx) {
   (void)mtx;
 #ifdef HAVE_PTHREAD
@@ -1083,7 +1127,7 @@ urkel_rwlock_rdlock(urkel__rwlock_t *mtx) {
 }
 
 void
-urkel_rwlock_unlock(urkel__rwlock_t *mtx) {
+urkel_rwlock_rdunlock(urkel__rwlock_t *mtx) {
   (void)mtx;
 #ifdef HAVE_PTHREAD
   if (pthread_rwlock_unlock(&mtx->handle) != 0)
