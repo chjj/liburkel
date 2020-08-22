@@ -17,9 +17,21 @@
 
 #define NUM_VALUES 1000
 
+typedef struct urkel_kv_s {
+  unsigned char key[32];
+  unsigned char value[50];
+} urkel_kv_t;
+
+static int
+urkel_kv_compare(const void *x, const void *y) {
+  unsigned char *a = ((urkel_kv_t *)x)->key;
+  unsigned char *b = ((urkel_kv_t *)y)->key;
+  return memcmp(a, b, 32);
+}
+
 int
 main(void) {
-  unsigned char *keys, *values;
+  urkel_kv_t *kvs;
   urkel_tx_t *tx;
   urkel_t *db;
   size_t i, j;
@@ -27,16 +39,14 @@ main(void) {
   urkel_destroy(DB_PATH);
 
   db = urkel_open(DB_PATH);
-  keys = malloc(NUM_VALUES * 32);
-  values = malloc(NUM_VALUES * 50);
+  kvs = malloc(NUM_VALUES * sizeof(urkel_kv_t));
 
   ASSERT(db != NULL);
-  ASSERT(keys != NULL);
-  ASSERT(values != NULL);
+  ASSERT(kvs != NULL);
 
   for (i = 0; i < NUM_VALUES; i++) {
-    unsigned char *key = &keys[i * 32];
-    unsigned char *value = &values[i * 50];
+    unsigned char *key = kvs[i].key;
+    unsigned char *value = kvs[i].value;
 
     for (j = 0; j < 32; j++)
       key[j] = rand();
@@ -50,8 +60,8 @@ main(void) {
   ASSERT(tx != NULL);
 
   for (i = 0; i < NUM_VALUES; i++) {
-    unsigned char *key = &keys[i * 32];
-    unsigned char *value = &values[i * 50];
+    unsigned char *key = kvs[i].key;
+    unsigned char *value = kvs[i].value;
     unsigned char result[50];
     size_t result_len;
 
@@ -72,8 +82,8 @@ main(void) {
   ASSERT(urkel_tx_commit(tx));
 
   for (i = 0; i < NUM_VALUES; i++) {
-    unsigned char *key = &keys[i * 32];
-    unsigned char *value = &values[i * 50];
+    unsigned char *key = kvs[i].key;
+    unsigned char *value = kvs[i].value;
     unsigned char result[50];
     size_t result_len;
 
@@ -95,8 +105,8 @@ main(void) {
   ASSERT(tx != NULL);
 
   for (i = 0; i < NUM_VALUES; i++) {
-    unsigned char *key = &keys[i * 32];
-    unsigned char *value = &values[i * 50];
+    unsigned char *key = kvs[i].key;
+    unsigned char *value = kvs[i].value;
     unsigned char result[50];
     size_t result_len;
 
@@ -108,13 +118,36 @@ main(void) {
     ASSERT(memcmp(result, value, 50) == 0);
   }
 
+  {
+    urkel_iter_t *iter = urkel_iter_create(tx);
+    unsigned char key[32];
+    unsigned char value[50];
+    size_t len;
+
+    ASSERT(iter != NULL);
+
+    qsort(kvs, NUM_VALUES, sizeof(urkel_kv_t), urkel_kv_compare);
+
+    i = 0;
+
+    while (urkel_iter_next(iter, key, value, &len)) {
+      ASSERT(len == 50);
+      ASSERT(memcmp(key, kvs[i].key, 32) == 0);
+      ASSERT(memcmp(value, kvs[i].value, 50) == 0);
+      i += 1;
+    }
+
+    ASSERT(i == NUM_VALUES);
+
+    urkel_iter_destroy(iter);
+  }
+
   urkel_tx_destroy(tx);
   urkel_close(db);
 
   ASSERT(urkel_destroy(DB_PATH));
 
-  free(keys);
-  free(values);
+  free(kvs);
 
   return 0;
 }
