@@ -1,0 +1,7 @@
+[
+  "_malloc",
+  "_free",
+  "stackAlloc",
+  "stackSave",
+  "stackRestore"
+]
