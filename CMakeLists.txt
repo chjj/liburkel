@@ -21,6 +21,7 @@ endif()
 #
 
 include(cmake/AppendCCompilerFlag.cmake)
+include(cmake/CheckCThreadLocalStorage.cmake)
 include(cmake/TargetLinkOptions.cmake)
 include(CheckCSourceCompiles)
 include(CheckIncludeFile)
@@ -131,6 +132,8 @@ if(NOT URKEL_WASM)
   endif()
 endif()
 
+check_c_thread_local_storage(URKEL_TLS)
+
 #
 # Defines
 #
@@ -153,6 +156,10 @@ if(URKEL_ENABLE_DEBUG)
   list(APPEND urkel_defines URKEL_DEBUG)
 else()
   list(APPEND urkel_defines $<$<CONFIG:Debug>:URKEL_DEBUG>)
+endif()
+
+if(URKEL_TLS)
+  list(APPEND urkel_defines URKEL_TLS=${URKEL_TLS})
 endif()
 
 #

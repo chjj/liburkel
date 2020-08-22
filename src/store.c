@@ -156,10 +156,10 @@ urkel_slab_init(urkel_slab_t *slab) {
 
 static void
 urkel_slab_uninit(urkel_slab_t *slab) {
-  if (slab->data)
+  if (slab->data != NULL)
     free(slab->data);
 
-  if (slab->chunks)
+  if (slab->chunks != NULL)
     free(slab->chunks);
 
   urkel_slab_init(slab);
@@ -266,13 +266,13 @@ urkel_filemap_init(urkel_filemap_t *fm) {
 
 static void
 urkel_filemap_uninit(urkel_filemap_t *fm) {
-  if (fm->items) {
+  if (fm->items != NULL) {
     size_t i;
 
     for (i = 0; i < fm->len; i++) {
       urkel_file_t *file = fm->items[i];
 
-      if (file) {
+      if (file != NULL) {
         urkel_fs_close(file->fd);
         free(file);
       }
@@ -320,7 +320,7 @@ urkel_filemap_remove(urkel_filemap_t *fm, size_t index) {
 
   file = fm->items[index];
 
-  if (file) {
+  if (file != NULL) {
     fm->items[index] = NULL;
     fm->size -= 1;
   }
@@ -348,7 +348,7 @@ urkel_cache_uninit(urkel_cache_t *cache) {
     if (kh_exist(cache->map, iter)) {
       node = kh_value(cache->map, iter);
 
-      if (node)
+      if (node != NULL)
         free(node);
 
       kh_value(cache->map, iter) = NULL;
@@ -370,7 +370,7 @@ urkel_cache_lookup(urkel_cache_t *cache,
 
   node = kh_value(cache->map, iter);
 
-  if (!node)
+  if (node == NULL)
     return 0;
 
   *out = *node;
@@ -469,7 +469,7 @@ urkel_store_open_file(data_store_t *store, uint32_t index, int flags) {
 
   file = urkel_filemap_lookup(&store->files, index);
 
-  if (file)
+  if (file != NULL)
     return file;
 
   urkel_store_path_index(store, path, index);
@@ -501,7 +501,7 @@ static void
 urkel_store_close_file(data_store_t *store, uint32_t index) {
   urkel_file_t *file = urkel_filemap_remove(&store->files, index);
 
-  if (file) {
+  if (file != NULL) {
     if (file == store->current) {
       store->current = &urkel_null_file;
       store->index = 0;
@@ -530,7 +530,7 @@ urkel_store_read(data_store_t *store,
                  uint64_t pos) {
   urkel_file_t *file = urkel_store_open_file(store, index, READ_FLAGS);
 
-  if (!file)
+  if (file == NULL)
     return 0;
 
   return urkel_fs_pread(file->fd, out, size, pos);
@@ -545,7 +545,7 @@ urkel_store_write(data_store_t *store,
   if ((uint64_t)store->current->size + size > MAX_FILE_SIZE) {
     file = urkel_store_open_file(store, store->index + 1, WRITE_FLAGS);
 
-    if (!file)
+    if (file == NULL)
       return 0;
 
     if (!urkel_fs_fdatasync(store->current->fd))
@@ -1097,7 +1097,7 @@ urkel_store_init(data_store_t *store, const char *prefix) {
   store->index = index;
   store->current = urkel_store_open_file(store, index, WRITE_FLAGS);
 
-  if (!store->current) {
+  if (store->current == NULL) {
     urkel_store_close(store);
     return 0;
   }

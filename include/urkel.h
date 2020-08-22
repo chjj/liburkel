@@ -45,6 +45,29 @@ typedef struct urkel_tx_s urkel_tx_t;
 typedef struct urkel_iter_s urkel_iter_t;
 
 /*
+ * Error Number
+ */
+
+URKEL_EXTERN int *
+__urkel_get_errno(void);
+
+#define urkel_errno (*__urkel_get_errno())
+
+#define URKEL_EHASHMISMATCH 1
+#define URKEL_ESAMEKEY 2
+#define URKEL_ESAMEPATH 3
+#define URKEL_ENEGDEPTH 4
+#define URKEL_EPATHMISMATCH 5
+#define URKEL_ETOODEEP 6
+#define URKEL_EUNKNOWN 7
+#define URKEL_ENOTFOUND 8
+#define URKEL_ECORRUPTION 9
+#define URKEL_ENOUPDATE 10
+#define URKEL_EBADWRITE 11
+#define URKEL_EBADOPEN 12
+#define URKEL_EITEREND 13
+
+/*
  * Database
  */
 

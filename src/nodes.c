@@ -133,7 +133,7 @@ urkel_node_uninit(urkel_node_t *node) {
     case URKEL_NODE_LEAF: {
       urkel_leaf_t *leaf = &node->u.leaf;
 
-      if (leaf->value) {
+      if (leaf->value != NULL) {
         free(leaf->value);
 
         leaf->value = NULL;
@@ -350,7 +350,7 @@ urkel_node_destroy(urkel_node_t *node, int recurse) {
     case URKEL_NODE_LEAF: {
       urkel_leaf_t *leaf = &node->u.leaf;
 
-      if (leaf->value)
+      if (leaf->value != NULL)
         free(leaf->value);
 
       free(node);

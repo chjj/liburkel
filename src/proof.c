@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <urkel.h>
 #include "bits.h"
 #include "internal.h"
 #include "proof.h"
@@ -367,7 +368,7 @@ urkel_proof_verify(const urkel_proof_t *proof,
   size_t i = proof->nodes_len;
 
   if (!urkel_proof_is_sane(proof))
-    return URKEL_PROOF_UNKNOWN_ERROR;
+    return URKEL_EUNKNOWN;
 
   /* Re-create the leaf. */
   switch (proof->type) {
@@ -378,7 +379,7 @@ urkel_proof_verify(const urkel_proof_t *proof,
 
     case URKEL_TYPE_SHORT: {
       if (urkel_bits_has(&proof->prefix, key, proof->depth))
-        return URKEL_PROOF_SAME_PATH;
+        return URKEL_ESAMEPATH;
 
       urkel_hash_internal(next, &proof->prefix, proof->left, proof->right);
 
@@ -387,7 +388,7 @@ urkel_proof_verify(const urkel_proof_t *proof,
 
     case URKEL_TYPE_COLLISION: {
       if (memcmp(proof->key, key, URKEL_KEY_SIZE) == 0)
-        return URKEL_PROOF_SAME_KEY;
+        return URKEL_ESAMEKEY;
 
       urkel_hash_leaf(next, proof->key, proof->hash);
 
@@ -400,7 +401,7 @@ urkel_proof_verify(const urkel_proof_t *proof,
     }
 
     default: {
-      return URKEL_PROOF_UNKNOWN_ERROR;
+      return URKEL_EUNKNOWN;
     }
   }
 
@@ -409,7 +410,7 @@ urkel_proof_verify(const urkel_proof_t *proof,
     const urkel_proof_node_t *node = proof->nodes[i];
 
     if (depth < node->prefix.size + 1)
-      return URKEL_PROOF_NEG_DEPTH;
+      return URKEL_ENEGDEPTH;
 
     depth -= 1;
 
@@ -421,14 +422,14 @@ urkel_proof_verify(const urkel_proof_t *proof,
     depth -= node->prefix.size;
 
     if (!urkel_bits_has(&node->prefix, key, depth))
-      return URKEL_PROOF_PATH_MISMATCH;
+      return URKEL_EPATHMISMATCH;
   }
 
   if (depth != 0)
-    return URKEL_PROOF_TOO_DEEP;
+    return URKEL_ETOODEEP;
 
   if (memcmp(next, root, URKEL_HASH_SIZE) != 0)
-    return URKEL_PROOF_HASH_MISMATCH;
+    return URKEL_EHASHMISMATCH;
 
-  return URKEL_PROOF_OK;
+  return 0;
 }
