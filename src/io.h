@@ -80,11 +80,9 @@
 #if defined(_WIN32)
 #  define URKEL_PATH_SEP '\\'
 #  define URKEL_IS_SEP(c) ((c) == '\\' || (c) == '/')
-#  define URKEL_IS_ABS(s) 1
 #else
 #  define URKEL_PATH_SEP '/'
 #  define URKEL_IS_SEP(c) ((c) == '/')
-#  define URKEL_IS_ABS(s) ((s)[0] == '/')
 #endif
 
 /*

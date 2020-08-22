@@ -101,7 +101,6 @@ else()
                                       -Wcast-align
                                       -Wno-implicit-fallthrough
                                       -Wno-long-long
-                                      -Wno-overlength-strings
                                       -Wshadow)
 endif()
 

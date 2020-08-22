@@ -54,6 +54,9 @@ urkel_open(const char *prefix);
 URKEL_EXTERN void
 urkel_close(urkel_t *tree);
 
+URKEL_EXTERN int
+urkel_destroy(const char *prefix);
+
 URKEL_EXTERN void
 urkel_root(urkel_t *tree, unsigned char *hash);
 

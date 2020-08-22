@@ -28,6 +28,9 @@ urkel_store_open(const char *prefix);
 void
 urkel_store_close(urkel_store_t *store);
 
+int
+urkel_store_destroy(const char *prefix);
+
 urkel_node_t *
 urkel_store_get_root(urkel_store_t *store);
 

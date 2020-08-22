@@ -521,6 +521,11 @@ urkel_close(tree_db_t *tree) {
   free(tree);
 }
 
+int
+urkel_destroy(const char *prefix) {
+  return urkel_store_destroy(prefix);
+}
+
 void
 urkel_root(tree_db_t *tree, unsigned char *hash) {
   urkel_rwlock_rdlock(tree->lock);

@@ -698,7 +698,7 @@ urkel_store_read_root(data_store_t *store,
   }
 
   urkel_node_hash(&node);
-  urkel_node_to_hash(out, &node);
+  urkel_node_to_hash(&node, out);
   urkel_node_uninit(&node);
 
   urkel_cache_insert(&store->cache, out);
@@ -728,7 +728,7 @@ urkel_store_retrieve(data_store_t *store,
   const urkel_leaf_t *leaf = &node->u.leaf;
   const urkel_pointer_t *ptr = &leaf->vptr;
 
-  CHECK(node->type != URKEL_NODE_LEAF);
+  CHECK(node->type == URKEL_NODE_LEAF);
 
   if (node->flags & URKEL_FLAG_VALUE) {
     CHECK(leaf->size <= URKEL_VALUE_SIZE);
@@ -847,7 +847,7 @@ urkel_store_write_meta(data_store_t *store,
 
   *state = store->state;
   state->root_ptr = root->ptr;
-  urkel_node_to_hash(&state->root_node, root);
+  urkel_node_to_hash(root, &state->root_node);
 
   padding = META_SIZE - (urkel_slab_pos(&store->slab) % META_SIZE);
 
@@ -979,10 +979,7 @@ urkel_store_init(data_store_t *store, const char *prefix) {
   while (prefix_len > 1 && URKEL_IS_SEP(prefix[prefix_len - 1]))
     prefix_len -= 1;
 
-  if (prefix_len == 0 || prefix_len > URKEL_PATH_LEN - 10)
-    return 0;
-
-  if (!URKEL_IS_ABS(prefix))
+  if (prefix_len == 0 || prefix_len > URKEL_PATH_LEN - 11)
     return 0;
 
   memcpy(store->prefix, prefix, prefix_len);
@@ -1093,4 +1090,49 @@ void
 urkel_store_close(data_store_t *store) {
   urkel_store_uninit(store);
   free(store);
+}
+
+int
+urkel_store_destroy(const char *prefix) {
+  size_t prefix_len = strlen(prefix);
+  char path[URKEL_PATH_SIZE];
+  urkel_dirent_t **list;
+  size_t i, count;
+
+  if (prefix_len > URKEL_PATH_LEN - 11)
+    return 0;
+
+  if (!urkel_fs_scandir(prefix, &list, &count))
+    return 0;
+
+  memcpy(path, prefix, prefix_len);
+
+  for (i = 0; i < count; i++) {
+    const char *name = list[i]->d_name;
+
+    int match = urkel_parse_u32(NULL, name)
+             || strcmp(name, "meta") == 0
+             || strcmp(name, "lock") == 0;
+
+    if (match) {
+      size_t len = strlen(name);
+      size_t off = prefix_len;
+
+      path[off++] = URKEL_PATH_SEP;
+
+      memcpy(path + off, name, len);
+
+      off += len;
+
+      path[off++] = '\0';
+
+      urkel_fs_unlink(path);
+    }
+
+    free(list[i]);
+  }
+
+  free(list);
+
+  return urkel_fs_rmdir(prefix);
 }
