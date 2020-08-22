@@ -44,20 +44,16 @@ typedef struct urkel_meta_s {
   urkel_node_t root_node;
 } urkel_meta_t;
 
-typedef struct urkel_chunk_s {
-  unsigned char *data;
-  size_t offset;
-  size_t size;
-} urkel_chunk_t;
-
 typedef struct urkel_slab_s {
-  uint64_t pos;
-  uint32_t index;
-  urkel_chunk_t *chunks;
-  size_t chunks_size;
-  size_t chunks_pos;
-  size_t chunks_len;
-  size_t total;
+  unsigned char *data; /* Preallocated slab. */
+  size_t data_size; /* Total bytes allocated. */
+  size_t data_len; /* Total bytes written. */
+  size_t data_off; /* Bytes written since last file rollover. */
+  size_t offsets[256]; /* Past offsets (one for each rollover). */
+  size_t steps; /* Number of elements in `offsets`. */
+  size_t start; /* Index at which urkel_store_flush left off. */
+  uint64_t file_pos; /* Current file position. */
+  uint32_t file_index; /* Current file index. */
 } urkel_slab_t;
 
 typedef struct urkel_file_s {
@@ -159,75 +155,43 @@ urkel_slab_init(urkel_slab_t *slab) {
 
 static void
 urkel_slab_uninit(urkel_slab_t *slab) {
-  if (slab->chunks != NULL) {
-    size_t i;
-
-    for (i = 0; i < slab->chunks_size; i++)
-      free(slab->chunks[i].data);
-
-    free(slab->chunks);
-  }
+  if (slab->data != NULL)
+    free(slab->data);
 
   urkel_slab_init(slab);
 }
 
 static void
-urkel_slab_alloc(urkel_slab_t *slab) {
-  urkel_chunk_t *chunk;
-
-  if (slab->chunks_len == slab->chunks_size) {
-    size_t new_size = (slab->chunks_size + 1) * sizeof(urkel_chunk_t);
-
-    slab->chunks_size += 1;
-    slab->chunks = checked_realloc(slab->chunks, new_size);
-
-    chunk = &slab->chunks[slab->chunks_len];
-
-    chunk->size = 8192;
-    chunk->data = checked_malloc(chunk->size);
-  }
-
-  chunk = &slab->chunks[slab->chunks_len++];
-
-  chunk->offset = 0;
-}
-
-static void
 urkel_slab_write(urkel_slab_t *slab, const unsigned char *data, size_t len) {
-  urkel_chunk_t *chunk;
-  size_t needs;
+  size_t needs = slab->data_len + len;
 
   CHECK(len <= MAX_FILE_SIZE);
 
-  if (slab->pos + len > MAX_FILE_SIZE) {
-    urkel_slab_alloc(slab);
+  if (slab->file_pos + len > MAX_FILE_SIZE) {
+    slab->offsets[slab->steps++] = slab->data_off;
 
-    slab->pos = 0;
-    slab->index += 1;
+    ASSERT(slab->steps != 256);
+
+    slab->data_off = 0;
+    slab->file_pos = 0;
+    slab->file_index += 1;
   }
 
-  if (slab->chunks_len == 0)
-    urkel_slab_alloc(slab);
+  if (slab->data_size < needs) {
+    slab->data_size = (slab->data_size * 3) / 2;
 
-  chunk = &slab->chunks[slab->chunks_len - 1];
-  needs = chunk->offset + len;
+    if (slab->data_size < needs)
+      slab->data_size = (needs * 3) / 2;
 
-  if (chunk->size < needs) {
-    chunk->size = (chunk->size * 3) / 2;
-
-    if (chunk->size < needs)
-      chunk->size = needs;
-
-    chunk->data = checked_realloc(chunk->data, chunk->size);
+    slab->data = checked_realloc(slab->data, slab->data_size);
   }
 
   if (len > 0)
-    memcpy(chunk->data + chunk->offset, data, len);
+    memcpy(slab->data + slab->data_len, data, len);
 
-  chunk->offset += len;
-
-  slab->pos += len;
-  slab->total += len;
+  slab->data_len += len;
+  slab->data_off += len;
+  slab->file_pos += len;
 }
 
 /*
@@ -671,7 +635,10 @@ urkel_store_write_node(data_store_t *store, urkel_node_t *node) {
   CHECK(!(node->flags & URKEL_FLAG_WRITTEN));
 
   urkel_slab_write(slab, raw, size);
-  urkel_node_mark(node, slab->index, slab->pos - size, size);
+
+  urkel_node_mark(node, slab->file_index,
+                  slab->file_pos - size,
+                  size);
 }
 
 void
@@ -684,32 +651,44 @@ urkel_store_write_value(data_store_t *store, urkel_node_t *node) {
   CHECK(node->flags & URKEL_FLAG_VALUE);
 
   urkel_slab_write(slab, leaf->value, leaf->size);
-  urkel_node_save(node, slab->index, slab->pos - leaf->size, leaf->size);
+
+  urkel_node_save(node, slab->file_index,
+                  slab->file_pos - leaf->size,
+                  leaf->size);
 }
 
 int
 urkel_store_needs_flush(const data_store_t *store) {
-  return store->slab.total >= WRITE_BUFFER;
+  return store->slab.data_len >= WRITE_BUFFER;
 }
 
 int
 urkel_store_flush(data_store_t *store) {
   urkel_slab_t *slab = &store->slab;
+  unsigned char *data = slab->data;
+  size_t i = 0;
 
-  while (slab->chunks_pos < slab->chunks_len) {
-    urkel_chunk_t *chunk = &slab->chunks[slab->chunks_pos];
+  slab->offsets[slab->steps++] = slab->data_off;
 
-    if (!urkel_store_write(store, chunk->data, chunk->offset))
+  for (; i < slab->start; i++)
+    data += slab->offsets[i];
+
+  for (; i < slab->steps; i++) {
+    size_t len = slab->offsets[i];
+
+    if (!urkel_store_write(store, data, len)) {
+      slab->steps -= 1;
+      slab->start = i;
       return 0;
+    }
 
-    slab->chunks_pos += 1;
-    slab->total -= chunk->offset;
+    data += len;
   }
 
-  CHECK(slab->total == 0);
-
-  slab->chunks_pos = 0;
-  slab->chunks_len = 0;
+  slab->data_len = 0;
+  slab->data_off = 0;
+  slab->steps = 0;
+  slab->start = 0;
 
   return 1;
 }
@@ -730,8 +709,8 @@ urkel_store_write_meta(data_store_t *store,
 
   urkel_node_to_hash(root, &state->root_node);
 
-  if (slab->pos % META_SIZE) {
-    size_t size = META_SIZE - (slab->pos % META_SIZE);
+  if (slab->file_pos % META_SIZE) {
+    size_t size = META_SIZE - (slab->file_pos % META_SIZE);
 
     urkel_slab_write(slab, padding, size);
   }
@@ -739,8 +718,8 @@ urkel_store_write_meta(data_store_t *store,
   urkel_meta_write(state, raw, store->key);
   urkel_slab_write(slab, raw, META_SIZE);
 
-  state->meta_ptr.index = slab->index;
-  state->meta_ptr.pos = slab->pos - META_SIZE;
+  state->meta_ptr.index = slab->file_index;
+  state->meta_ptr.pos = slab->file_pos - META_SIZE;
 }
 
 int
@@ -1062,8 +1041,8 @@ urkel_store_init(data_store_t *store, const char *prefix) {
     return 0;
   }
 
-  store->slab.pos = store->current->size;
-  store->slab.index = store->current->index;
+  store->slab.file_pos = store->current->size;
+  store->slab.file_index = store->current->index;
 
   if (!urkel_store_read_root(store, &store->state.root_node,
                                     &store->state.root_ptr)) {
