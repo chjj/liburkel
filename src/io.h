@@ -208,6 +208,13 @@ char *
 urkel_path_resolve(const char *path);
 
 /*
+ * System
+ */
+
+int
+urkel_sys_random(void *dst, size_t size);
+
+/*
  * Mutex
  */
 

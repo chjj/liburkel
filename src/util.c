@@ -151,6 +151,9 @@ urkel_random_bytes(unsigned char *dst, size_t len) {
   size_t max = 32;
   urkel_blake2b_t ctx;
 
+  if (urkel_sys_random(dst, len))
+    return;
+
   memset(&ts, 0, sizeof(ts));
 
   urkel_time_get(&ts);

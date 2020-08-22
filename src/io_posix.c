@@ -5,6 +5,7 @@
  */
 
 #undef HAVE_FLOCK
+#undef HAVE_PTHREAD
 
 #if defined(__ANDROID__)
 #  undef _GNU_SOURCE
@@ -42,21 +43,26 @@
 #  define _XOPEN_SOURCE 500
 #endif
 
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
+#  define HAVE_PTHREAD
+#endif
+
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-
 #ifdef HAVE_FLOCK
 #include <sys/file.h>
 #endif
+#ifdef __wasi__
+#include <sys/random.h>
+#endif
 
-#include <fcntl.h>
-#include <unistd.h>
 #include <dirent.h>
-
-#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
+#include <fcntl.h>
+#ifdef HAVE_PTHREAD
 #include <pthread.h>
 #endif
+#include <unistd.h>
 
 #include <errno.h>
 #include <stdlib.h>
@@ -65,6 +71,26 @@
 #include <string.h>
 
 #include "io.h"
+
+/*
+ * Structs
+ */
+
+typedef struct urkel_mutex_s {
+#if defined(HAVE_PTHREAD)
+  pthread_mutex_t handle;
+#else
+  void *unused;
+#endif
+} urkel__mutex_t;
+
+typedef struct urkel_rwlock_s {
+#if defined(HAVE_PTHREAD)
+  pthread_rwlock_t handle;
+#else
+  void *unused;
+#endif
+} urkel__rwlock_t;
 
 /*
  * Filesystem
@@ -929,163 +955,141 @@ urkel_path_resolve(const char *path) {
 }
 
 /*
+ * System
+ */
+
+int
+urkel_sys_random(void *dst, size_t size) {
+#if defined(__wasi__)
+  return getentropy(dst, size) == 0;
+#else
+  int ret;
+#ifdef __redox__
+  int fd = urkel_fs_open("rand:", URKEL_O_RDONLY, 0);
+#else
+  int fd = urkel_fs_open("/dev/urandom", URKEL_O_RDONLY, 0);
+
+  if (fd == -1)
+    fd = urkel_fs_open("/dev/random", URKEL_O_RDONLY, 0);
+#endif
+
+  if (fd == -1)
+    return 0;
+
+  ret = urkel_fs_read(fd, dst, size);
+
+  urkel_fs_close(fd);
+
+  return ret;
+#endif
+}
+
+/*
  * Mutex
  */
 
-#if defined(__EMSCRIPTEN__) || defined(__wasi__)
-struct urkel_mutex_s {
-  void *unused;
-};
-
-struct urkel_mutex_s *
+urkel__mutex_t *
 urkel_mutex_create(void) {
-  struct urkel_mutex_s *mtx = malloc(sizeof(struct urkel_mutex_s));
-
-  if (mtx == NULL)
-    abort();
-
-  return mtx;
-}
-
-void
-urkel_mutex_destroy(struct urkel_mutex_s *mtx) {
-  free(mtx);
-}
-
-void
-urkel_mutex_lock(struct urkel_mutex_s *mtx) {
-  (void)mtx;
-}
-
-void
-urkel_mutex_unlock(struct urkel_mutex_s *mtx) {
-  (void)mtx;
-}
-#else
-struct urkel_mutex_s {
-  pthread_mutex_t handle;
-};
-
-struct urkel_mutex_s *
-urkel_mutex_create(void) {
-  struct urkel_mutex_s *mtx = malloc(sizeof(struct urkel_mutex_s));
+  urkel__mutex_t *mtx = malloc(sizeof(urkel__mutex_t));
 
   if (mtx == NULL) {
     abort();
     return NULL;
   }
 
+#ifdef HAVE_PTHREAD
   if (pthread_mutex_init(&mtx->handle, NULL) != 0)
     abort();
+#endif
 
   return mtx;
 }
 
 void
-urkel_mutex_destroy(struct urkel_mutex_s *mtx) {
+urkel_mutex_destroy(urkel__mutex_t *mtx) {
+#ifdef HAVE_PTHREAD
   if (pthread_mutex_destroy(&mtx->handle) != 0)
     abort();
+#endif
 
   free(mtx);
 }
 
 void
-urkel_mutex_lock(struct urkel_mutex_s *mtx) {
+urkel_mutex_lock(urkel__mutex_t *mtx) {
+  (void)mtx;
+#ifdef HAVE_PTHREAD
   if (pthread_mutex_lock(&mtx->handle) != 0)
     abort();
+#endif
 }
 
 void
-urkel_mutex_unlock(struct urkel_mutex_s *mtx) {
+urkel_mutex_unlock(urkel__mutex_t *mtx) {
+  (void)mtx;
+#ifdef HAVE_PTHREAD
   if (pthread_mutex_unlock(&mtx->handle) != 0)
     abort();
-}
 #endif
+}
 
 /*
  * Read-Write Lock
  */
 
-#if defined(__EMSCRIPTEN__) || defined(__wasi__)
-struct urkel_rwlock_s {
-  void *unused;
-};
-
-struct urkel_rwlock_s *
+urkel__rwlock_t *
 urkel_rwlock_create(void) {
-  struct urkel_rwlock_s *mtx = malloc(sizeof(struct urkel_rwlock_s));
-
-  if (mtx == NULL)
-    abort();
-
-  return mtx;
-}
-
-void
-urkel_rwlock_destroy(struct urkel_rwlock_s *mtx) {
-  free(mtx);
-}
-
-void
-urkel_rwlock_wrlock(struct urkel_rwlock_s *mtx) {
-  (void)mtx;
-}
-
-void
-urkel_rwlock_rdlock(struct urkel_rwlock_s *mtx) {
-  (void)mtx;
-}
-
-void
-urkel_rwlock_unlock(struct urkel_rwlock_s *mtx) {
-  (void)mtx;
-}
-#else
-struct urkel_rwlock_s {
-  pthread_rwlock_t handle;
-};
-
-struct urkel_rwlock_s *
-urkel_rwlock_create(void) {
-  struct urkel_rwlock_s *mtx = malloc(sizeof(struct urkel_rwlock_s));
+  urkel__rwlock_t *mtx = malloc(sizeof(urkel__rwlock_t));
 
   if (mtx == NULL) {
     abort();
     return NULL;
   }
 
+#ifdef HAVE_PTHREAD
   if (pthread_rwlock_init(&mtx->handle, NULL) != 0)
     abort();
+#endif
 
   return mtx;
 }
 
 void
-urkel_rwlock_destroy(struct urkel_rwlock_s *mtx) {
+urkel_rwlock_destroy(urkel__rwlock_t *mtx) {
+#ifdef HAVE_PTHREAD
   if (pthread_rwlock_destroy(&mtx->handle) != 0)
     abort();
+#endif
 
   free(mtx);
 }
 
 void
-urkel_rwlock_wrlock(struct urkel_rwlock_s *mtx) {
+urkel_rwlock_wrlock(urkel__rwlock_t *mtx) {
+  (void)mtx;
+#ifdef HAVE_PTHREAD
   if (pthread_rwlock_wrlock(&mtx->handle) != 0)
     abort();
+#endif
 }
 
 void
-urkel_rwlock_rdlock(struct urkel_rwlock_s *mtx) {
+urkel_rwlock_rdlock(urkel__rwlock_t *mtx) {
+  (void)mtx;
+#ifdef HAVE_PTHREAD
   if (pthread_rwlock_rdlock(&mtx->handle) != 0)
     abort();
+#endif
 }
 
 void
-urkel_rwlock_unlock(struct urkel_rwlock_s *mtx) {
+urkel_rwlock_unlock(urkel__rwlock_t *mtx) {
+  (void)mtx;
+#ifdef HAVE_PTHREAD
   if (pthread_rwlock_unlock(&mtx->handle) != 0)
     abort();
-}
 #endif
+}
 
 /*
  * Time
