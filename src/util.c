@@ -182,8 +182,6 @@ urkel_checksum(unsigned char *out,
   return out + 20;
 }
 
-#define ROTL32(x, y) ((x) << (y)) | ((x) >> (32 - (y)))
-
 uint32_t
 urkel_murmur3(const unsigned char *data, size_t len, uint32_t seed) {
   uint32_t h1 = seed;
@@ -191,6 +189,8 @@ urkel_murmur3(const unsigned char *data, size_t len, uint32_t seed) {
   uint32_t c2 = UINT32_C(0x1b873593);
   uint32_t k1 = 0;
   size_t left = len;
+
+#define ROTL32(x, y) ((x) << (y)) | ((x) >> (32 - (y)))
 
   while (left >= 4) {
     k1 = urkel_read32(data);
@@ -222,6 +222,8 @@ urkel_murmur3(const unsigned char *data, size_t len, uint32_t seed) {
       h1 ^= k1;
   }
 
+#undef ROTL32
+
   h1 ^= len;
   h1 ^= h1 >> 16;
   h1 *= UINT32_C(0x85ebca6b);
@@ -232,4 +234,3 @@ urkel_murmur3(const unsigned char *data, size_t len, uint32_t seed) {
   return h1;
 }
 
-#undef ROTL32
