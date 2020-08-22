@@ -964,7 +964,7 @@ urkel_sys_random(void *dst, size_t size) {
   return getentropy(dst, size) == 0;
 #else
   int ret;
-#ifdef __redox__
+#if defined(__redox__)
   int fd = urkel_fs_open("rand:", URKEL_O_RDONLY, 0);
 #else
   int fd = urkel_fs_open("/dev/urandom", URKEL_O_RDONLY, 0);
