@@ -731,8 +731,10 @@ urkel_store_commit(data_store_t *store, urkel_node_t *root) {
   if (!urkel_store_flush(store))
     return 0;
 
+#ifdef URKEL_FSYNC
   if (!urkel_store_sync(store))
     return 0;
+#endif
 
   store->state = state;
 
