@@ -46,10 +46,10 @@ urkel_store_retrieve(urkel_store_t *store,
 urkel_node_t *
 urkel_store_resolve(urkel_store_t *store, urkel_node_t *node);
 
-uint64_t
+void
 urkel_store_write_node(urkel_store_t *store, urkel_node_t *node);
 
-uint64_t
+void
 urkel_store_write_value(urkel_store_t *store, urkel_node_t *node);
 
 int

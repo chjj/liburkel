@@ -508,8 +508,8 @@ urkel_fs_rmdir(const char *name) {
 
 static int
 urkel__dirent_compare(const void *x, const void *y) {
-  const urkel_dirent_t *a = x;
-  const urkel_dirent_t *b = y;
+  const urkel_dirent_t *a = *((const urkel_dirent_t **)x);
+  const urkel_dirent_t *b = *((const urkel_dirent_t **)y);
 
   return strcmp(a->d_name, b->d_name);
 }

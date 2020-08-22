@@ -24,8 +24,8 @@ typedef struct urkel_kv_s {
 
 static int
 urkel_kv_compare(const void *x, const void *y) {
-  unsigned char *a = ((urkel_kv_t *)x)->key;
-  unsigned char *b = ((urkel_kv_t *)y)->key;
+  const unsigned char *a = ((const urkel_kv_t *)x)->key;
+  const unsigned char *b = ((const urkel_kv_t *)y)->key;
   return memcmp(a, b, 32);
 }
 
@@ -95,9 +95,11 @@ main(void) {
   urkel_close(db);
 
   db = urkel_open(DB_PATH);
-  tx = urkel_tx_create(db, NULL);
 
   ASSERT(db != NULL);
+
+  tx = urkel_tx_create(db, NULL);
+
   ASSERT(tx != NULL);
 
   for (i = 0; i < NUM_VALUES; i++) {
