@@ -201,7 +201,9 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
       if (prefix.size == 0 || prefix.size > URKEL_KEY_BITS)
         return 0;
 
-      data += urkel_bits_size(&prefix);
+      size = urkel_bits_size(&prefix);
+      data += size;
+      len -= size;
     } else {
       urkel_bits_init(&prefix, 0);
     }
@@ -210,7 +212,9 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
       return 0;
 
     memcpy(hash, data, URKEL_HASH_SIZE);
+
     data += URKEL_HASH_SIZE;
+    len -= URKEL_HASH_SIZE;
 
     urkel_proof_push(proof, &prefix, hash);
   }
@@ -227,16 +231,18 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
       if (proof->prefix.size == 0 || proof->prefix.size > URKEL_KEY_BITS)
         return 0;
 
-      data += urkel_bits_size(&proof->prefix);
+      size = urkel_bits_size(&proof->prefix);
+      data += size;
+      len -= size;
 
       if (len < URKEL_HASH_SIZE * 2)
         return 0;
 
       memcpy(proof->left, data, URKEL_HASH_SIZE);
-      data += URKEL_HASH_SIZE;
-
       memcpy(proof->right, data, URKEL_HASH_SIZE);
-      data += URKEL_HASH_SIZE;
+
+      data += URKEL_HASH_SIZE * 2;
+      len -= URKEL_HASH_SIZE * 2;
 
       break;
     }
@@ -246,10 +252,10 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
         return 0;
 
       memcpy(proof->key, data, URKEL_KEY_SIZE);
-      data += URKEL_KEY_SIZE;
-
       memcpy(proof->hash, data, URKEL_HASH_SIZE);
-      data += URKEL_HASH_SIZE;
+
+      data += URKEL_KEY_SIZE + URKEL_HASH_SIZE;
+      len -= URKEL_KEY_SIZE + URKEL_HASH_SIZE;
 
       break;
     }
@@ -260,12 +266,15 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
 
       size = urkel_read16(data);
       data += 2;
+      len -= 2;
 
       if (len < size)
         return 0;
 
       if (size > 0)
         memcpy(proof->value, data, size);
+
+      len -= size;
 
       proof->size = size;
 

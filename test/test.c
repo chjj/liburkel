@@ -142,6 +142,25 @@ main(void) {
     urkel_iter_destroy(iter);
   }
 
+  {
+    unsigned char root[32];
+    unsigned char *key = kvs[0].key;
+    unsigned char *proof_raw;
+    size_t proof_len;
+    unsigned char *value;
+    size_t value_len;
+
+    urkel_tx_root(tx, root);
+
+    ASSERT(urkel_tx_prove(tx, &proof_raw, &proof_len, key));
+    ASSERT(urkel_verify(&value, &value_len, proof_raw, proof_len, root, key));
+    ASSERT(value_len == 50);
+    ASSERT(memcmp(value, kvs[0].value, 50) == 0);
+
+    free(proof_raw);
+    free(value);
+  }
+
   urkel_tx_destroy(tx);
   urkel_close(db);
 

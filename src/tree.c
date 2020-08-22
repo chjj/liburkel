@@ -666,7 +666,7 @@ urkel_verify(unsigned char **value,
 
   ret = urkel_proof_verify(&proof, root, key);
 
-  if (ret && proof.size > 0) {
+  if (ret == URKEL_PROOF_OK && proof.size > 0) {
     *value = checked_malloc(proof.size);
     *value_len = proof.size;
 
@@ -678,7 +678,7 @@ urkel_verify(unsigned char **value,
 
   urkel_proof_uninit(&proof);
 
-  return ret;
+  return ret == URKEL_PROOF_OK;
 }
 
 tree_iter_t *
