@@ -272,23 +272,13 @@ else()
   if(UNIX)
     string(REPLACE ":" "." urkel_version "${URKEL_ABI_VERSION}")
     string(REGEX MATCH "^[0-9]+" urkel_soversion "${URKEL_ABI_VERSION}")
+
     set_target_properties(urkel PROPERTIES VERSION ${urkel_version}
                                              SOVERSION ${urkel_soversion})
     set_target_properties(urkel_static PROPERTIES OUTPUT_NAME urkel)
-  endif()
 
-  if(UNIX)
-    set(prefix ${CMAKE_INSTALL_PREFIX})
-    set(exec_prefix \${prefix})
-    set(libdir \${exec_prefix}/${CMAKE_INSTALL_LIBDIR})
-    set(includedir \${prefix}/${CMAKE_INSTALL_INCLUDEDIR})
-    set(PACKAGE_NAME ${PROJECT_NAME})
-    set(PACKAGE_VERSION ${PROJECT_VERSION})
-    set(LIBS_PRIVATE ${CMAKE_THREAD_LIBS_INIT})
     configure_file(liburkel.pc.in liburkel.pc @ONLY)
-  endif()
 
-  if(UNIX)
     install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(FILES LICENSE
             DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME})

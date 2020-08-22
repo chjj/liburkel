@@ -1,13 +1,13 @@
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-libdir=@libdir@
-includedir=@includedir@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 
-Name: @PACKAGE_NAME@
-Version: @PACKAGE_VERSION@
+Name: @PROJECT_NAME@
+Version: @PROJECT_VERSION@
 Description: Cryptographically provable key-value store.
 URL: https://github.com/handshake-org/liburkel
 
 Libs: -L${libdir} -lurkel
-Libs.private: @LIBS_PRIVATE@
+Libs.private: @CMAKE_THREAD_LIBS_INIT@
 Cflags: -I${includedir}
