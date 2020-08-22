@@ -843,6 +843,80 @@ urkel_fs_close(int fd) {
 }
 
 /*
+ * Process
+ */
+
+int
+urkel_ps_cwd(char *buf, size_t size) {
+  if (size < 2)
+    return 0;
+
+#if defined(__wasi__)
+  buf[0] = '/';
+  buf[1] = '\0';
+#else
+  if (getcwd(buf, size) == NULL)
+    return 0;
+
+  buf[size - 1] = '\0';
+#endif
+
+  return 1;
+}
+
+/*
+ * Path
+ */
+
+char *
+urkel_path_resolve(const char *path) {
+  size_t plen = path != NULL ? strlen(path) : 0;
+  size_t clen;
+  char *out;
+
+  while (plen > 1 && path[plen - 1] == '/')
+    plen -= 1;
+
+  if (plen > 0 && path[0] == '/') {
+    out = malloc(plen + 1);
+
+    if (out == NULL)
+      return NULL;
+
+    memcpy(out, path, plen + 1);
+  } else {
+    out = malloc(URKEL_PATH_MAX + 1);
+
+    if (out == NULL)
+      return NULL;
+
+    if (!urkel_ps_cwd(out, URKEL_PATH_MAX + 1)) {
+      free(out);
+      return NULL;
+    }
+
+    if (plen == 0)
+      return out;
+
+    if (plen == 1 && path[0] == '.')
+      return out;
+
+    clen = strlen(out);
+
+    if (clen + 1 + plen > URKEL_PATH_MAX) {
+      free(out);
+      return NULL;
+    }
+
+    out[clen] = '/';
+
+    memcpy(out + clen + 1, path, plen + 1);
+  }
+
+  return out;
+}
+
+/*
  * Mutex
  */
 

@@ -77,7 +77,7 @@ typedef struct urkel_cache_s {
 } urkel_cache_t;
 
 typedef struct urkel_store_s {
-  char prefix[URKEL_PATH_SIZE];
+  char prefix[URKEL_PATH_MAX + 1];
   size_t prefix_len;
   unsigned char key[KEY_SIZE];
   urkel_slab_t slab;
@@ -455,7 +455,7 @@ urkel_store_evict(data_store_t *store) {
 
 static urkel_file_t *
 urkel_store_open_file(data_store_t *store, uint32_t index, int flags) {
-  char path[URKEL_PATH_SIZE];
+  char path[URKEL_PATH_MAX + 1];
   urkel_file_t *file;
   urkel_stat_t st;
   int fd;
@@ -507,93 +507,6 @@ urkel_store_close_file(data_store_t *store, uint32_t index) {
 
     free(file);
   }
-}
-
-static int
-urkel_store_find_meta(const data_store_t *store,
-                      urkel_meta_t *meta,
-                      uint64_t *off,
-                      const char *path,
-                      unsigned char *slab) {
-  urkel_stat_t st;
-  int ret = 0;
-  int fd;
-
-  fd = urkel_fs_open(path, URKEL_O_RDONLY, 0);
-
-  if (fd == -1)
-    return 0;
-
-  if (!urkel_fs_fstat(fd, &st))
-    goto done;
-
-  *off = st.st_size - (st.st_size % META_SIZE);
-
-  while (*off >= META_SIZE) {
-    uint64_t pos = 0;
-    uint64_t size = *off;
-
-    if (*off >= SLAB_SIZE) {
-      pos = *off - SLAB_SIZE;
-      size = SLAB_SIZE;
-    }
-
-    if (!urkel_fs_pread(fd, slab, size, pos))
-      goto done;
-
-    while (size >= META_SIZE) {
-      size -= META_SIZE;
-      *off -= META_SIZE;
-
-      if (urkel_meta_read(meta, slab + size, store->key)) {
-        urkel_fs_ftruncate(fd, *off + META_SIZE);
-        ret = 1;
-        goto done;
-      }
-    }
-  }
-
-done:
-  urkel_fs_close(fd);
-  return ret;
-}
-
-static int
-urkel_store_recover_state(const data_store_t *store,
-                          urkel_meta_t *state,
-                          urkel_meta_t *meta,
-                          uint32_t *index) {
-  unsigned char *slab = checked_malloc(SLAB_SIZE);
-  char path[URKEL_PATH_SIZE];
-  uint64_t off;
-  int ret = 0;
-
-  urkel_meta_init(state);
-  urkel_meta_init(meta);
-
-  while (*index >= 1) {
-    urkel_store_path_index(store, path, *index);
-
-    if (urkel_store_find_meta(store, meta, &off, path, slab)) {
-      *state = *meta;
-      state->meta_ptr.index = *index;
-      state->meta_ptr.pos = off;
-      goto succeed;
-    }
-
-    if (!urkel_fs_unlink(path))
-      goto fail;
-
-    *index -= 1;
-  }
-
-  *index = 1;
-
-succeed:
-  ret = 1;
-fail:
-  free(slab);
-  return ret;
 }
 
 static void
@@ -966,43 +879,58 @@ urkel_store_get_history(data_store_t *store, const unsigned char *root_hash) {
   return root;
 }
 
+/*
+ * Initialization
+ */
+
 static int
-urkel_store_init(data_store_t *store, const char *prefix) {
-  size_t prefix_len = strlen(prefix);
-  char path[URKEL_PATH_SIZE];
-  urkel_dirent_t **list;
-  uint32_t index = 0;
-  size_t i, count;
-  int failed = 0;
-  int fd;
+urkel_store_init_prefix(data_store_t *store, const char *prefix) {
+  char *path = urkel_path_resolve(prefix);
+  size_t len;
 
-  while (prefix_len > 1 && URKEL_IS_SEP(prefix[prefix_len - 1]))
-    prefix_len -= 1;
-
-  if (prefix_len == 0 || prefix_len > URKEL_PATH_LEN - 11)
+  if (path == NULL)
     return 0;
 
-  memcpy(store->prefix, prefix, prefix_len);
+  len = strlen(path);
 
-  store->prefix[prefix_len] = '\0';
-  store->prefix_len = prefix_len;
-
-  if (!urkel_fs_exists(store->prefix)) {
-    if (!urkel_fs_mkdir(store->prefix, 0750))
-      return 0;
+  if (len + 10 > URKEL_PATH_MAX) {
+    free(path);
+    return 0;
   }
+
+  memcpy(store->prefix, path, len + 1);
+
+  store->prefix_len = len;
+
+  free(path);
+
+  if (urkel_fs_exists(store->prefix))
+    return 1;
+
+  return urkel_fs_mkdir(store->prefix, 0750);
+}
+
+static int
+urkel_store_init_meta(data_store_t *store) {
+  char path[URKEL_PATH_MAX + 1];
 
   urkel_store_path(store, path, "meta");
 
-  if (urkel_fs_exists(path)) {
-    if (!urkel_fs_read_file(path, store->key, KEY_SIZE))
-      return 0;
-  } else {
-    urkel_random_bytes(store->key, KEY_SIZE);
+  if (urkel_fs_exists(path))
+    return urkel_fs_read_file(path, store->key, KEY_SIZE);
 
-    if (!urkel_fs_write_file(path, 0640, store->key, KEY_SIZE))
-      return 0;
-  }
+  urkel_random_bytes(store->key, KEY_SIZE);
+
+  return urkel_fs_write_file(path, 0640, store->key, KEY_SIZE);
+}
+
+static int
+urkel_store_find_index(data_store_t *store, uint32_t *index) {
+  urkel_dirent_t **list;
+  size_t i, count;
+  int ret = 1;
+
+  *index = 0;
 
   if (!urkel_fs_scandir(store->prefix, &list, &count))
     return 0;
@@ -1011,10 +939,10 @@ urkel_store_init(data_store_t *store, const char *prefix) {
     uint32_t num;
 
     if (urkel_parse_u32(&num, list[i]->d_name)) {
-      if (num > 0 && num != index + 1)
-        failed = 1;
+      if (num != *index + 1)
+        ret = 0;
 
-      index = num;
+      *index = num;
     }
 
     free(list[i]);
@@ -1022,8 +950,13 @@ urkel_store_init(data_store_t *store, const char *prefix) {
 
   free(list);
 
-  if (failed)
-    return 0;
+  return ret;
+}
+
+static int
+urkel_store_init_lock(data_store_t *store) {
+  char path[URKEL_PATH_MAX + 1];
+  int fd;
 
   urkel_store_path(store, path, "lock");
 
@@ -1032,11 +965,119 @@ urkel_store_init(data_store_t *store, const char *prefix) {
   if (fd == -1)
     return 0;
 
+  store->lock_fd = fd;
+
+  return 1;
+}
+
+static int
+urkel_store_find_meta(const data_store_t *store,
+                      urkel_meta_t *meta,
+                      uint64_t *off,
+                      const char *path,
+                      unsigned char *slab) {
+  urkel_stat_t st;
+  int ret = 0;
+  int fd;
+
+  fd = urkel_fs_open(path, URKEL_O_RDONLY, 0);
+
+  if (fd == -1)
+    return 0;
+
+  if (!urkel_fs_fstat(fd, &st))
+    goto done;
+
+  *off = st.st_size - (st.st_size % META_SIZE);
+
+  while (*off >= META_SIZE) {
+    uint64_t pos = 0;
+    uint64_t size = *off;
+
+    if (*off >= SLAB_SIZE) {
+      pos = *off - SLAB_SIZE;
+      size = SLAB_SIZE;
+    }
+
+    if (!urkel_fs_pread(fd, slab, size, pos))
+      goto done;
+
+    while (size >= META_SIZE) {
+      size -= META_SIZE;
+      *off -= META_SIZE;
+
+      if (urkel_meta_read(meta, slab + size, store->key)) {
+        urkel_fs_ftruncate(fd, *off + META_SIZE);
+        ret = 1;
+        goto done;
+      }
+    }
+  }
+
+done:
+  urkel_fs_close(fd);
+  return ret;
+}
+
+static int
+urkel_store_recover_state(const data_store_t *store,
+                          urkel_meta_t *state,
+                          urkel_meta_t *meta,
+                          uint32_t *index) {
+  unsigned char *slab = checked_malloc(SLAB_SIZE);
+  char path[URKEL_PATH_MAX + 1];
+  uint64_t off;
+  int ret = 0;
+
+  urkel_meta_init(state);
+  urkel_meta_init(meta);
+
+  while (*index >= 1) {
+    urkel_store_path_index(store, path, *index);
+
+    if (urkel_store_find_meta(store, meta, &off, path, slab)) {
+      *state = *meta;
+      state->meta_ptr.index = *index;
+      state->meta_ptr.pos = off;
+      goto succeed;
+    }
+
+    if (!urkel_fs_unlink(path))
+      goto fail;
+
+    *index -= 1;
+  }
+
+  *index = 1;
+
+succeed:
+  ret = 1;
+fail:
+  free(slab);
+  return ret;
+}
+
+static int
+urkel_store_init(data_store_t *store, const char *prefix) {
+  uint32_t index;
+
+  if (!urkel_store_init_prefix(store, prefix))
+    return 0;
+
+  if (!urkel_store_init_meta(store))
+    return 0;
+
+  if (!urkel_store_find_index(store, &index))
+    return 0;
+
+  if (!urkel_store_init_lock(store))
+    return 0;
+
   if (!urkel_store_recover_state(store,
                                  &store->state,
                                  &store->last_meta,
                                  &index)) {
-    urkel_fs_close_lock(fd);
+    urkel_fs_close_lock(store->lock_fd);
     return 0;
   }
 
@@ -1044,12 +1085,11 @@ urkel_store_init(data_store_t *store, const char *prefix) {
   urkel_filemap_init(&store->files);
   urkel_cache_init(&store->cache);
 
-  store->lock_fd = fd;
   store->index = index;
   store->current = urkel_store_open_file(store, index, WRITE_FLAGS);
 
   if (!store->current) {
-    urkel_fs_close_lock(fd);
+    urkel_store_close(store);
     return 0;
   }
 
@@ -1094,18 +1134,30 @@ urkel_store_close(data_store_t *store) {
 
 int
 urkel_store_destroy(const char *prefix) {
-  size_t prefix_len = strlen(prefix);
-  char path[URKEL_PATH_SIZE];
+  size_t path_len = strlen(prefix);
+  char path[URKEL_PATH_MAX + 1];
   urkel_dirent_t **list;
   size_t i, count;
+  int fd;
 
-  if (prefix_len > URKEL_PATH_LEN - 11)
+  if (path_len + 10 > URKEL_PATH_MAX)
     return 0;
+
+  memcpy(path, prefix, path_len);
+
+  path[path_len++] = URKEL_PATH_SEP;
+
+  memcpy(path + path_len, "lock", 5);
+
+  fd = urkel_fs_open_lock(path, 0640);
+
+  if (fd == -1)
+    return 0;
+
+  urkel_fs_close_lock(fd);
 
   if (!urkel_fs_scandir(prefix, &list, &count))
     return 0;
-
-  memcpy(path, prefix, prefix_len);
 
   for (i = 0; i < count; i++) {
     const char *name = list[i]->d_name;
@@ -1115,17 +1167,7 @@ urkel_store_destroy(const char *prefix) {
              || strcmp(name, "lock") == 0;
 
     if (match) {
-      size_t len = strlen(name);
-      size_t off = prefix_len;
-
-      path[off++] = URKEL_PATH_SEP;
-
-      memcpy(path + off, name, len);
-
-      off += len;
-
-      path[off++] = '\0';
-
+      memcpy(path + path_len, name, strlen(name) + 1);
       urkel_fs_unlink(path);
     }
 

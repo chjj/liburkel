@@ -74,15 +74,12 @@
 #define URKEL_NSEC(ts) \
   ((uint64_t)(ts)->tv_sec * 1000000000 + (uint64_t)(ts)->tv_nsec)
 
-#define URKEL_PATH_LEN 1024
-#define URKEL_PATH_SIZE (URKEL_PATH_LEN + 1)
+#define URKEL_PATH_MAX 1024
 
 #if defined(_WIN32)
 #  define URKEL_PATH_SEP '\\'
-#  define URKEL_IS_SEP(c) ((c) == '\\' || (c) == '/')
 #else
 #  define URKEL_PATH_SEP '/'
-#  define URKEL_IS_SEP(c) ((c) == '/')
 #endif
 
 /*
@@ -195,6 +192,20 @@ urkel_fs_flock(int fd, int operation);
 
 int
 urkel_fs_close(int fd);
+
+/*
+ * Process
+ */
+
+int
+urkel_ps_cwd(char *buf, size_t size);
+
+/*
+ * Path
+ */
+
+char *
+urkel_path_resolve(const char *path);
 
 /*
  * Mutex
