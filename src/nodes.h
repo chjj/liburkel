@@ -28,7 +28,7 @@
 #define URKEL_PTR_SIZE 7
 
 /* 113 */
-#define URKEL_MAX_NODE_SIZE (0             \
+#define URKEL_NODE_SIZE (0                 \
   + 1                                      \
   + 2 + URKEL_KEY_SIZE                     \
   + 2 * (URKEL_PTR_SIZE + URKEL_HASH_SIZE) \

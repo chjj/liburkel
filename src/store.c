@@ -90,6 +90,10 @@ typedef struct urkel_store_s {
   urkel_file_t *current;
 } data_store_t;
 
+/*
+ * Constants
+ */
+
 static urkel_file_t urkel_null_file = {-1, 0, 0};
 
 /*
@@ -570,7 +574,10 @@ static int
 urkel_store_read_node(data_store_t *store,
                       urkel_node_t *out,
                       const urkel_pointer_t *ptr) {
-  unsigned char data[URKEL_MAX_NODE_SIZE];
+  unsigned char data[URKEL_NODE_SIZE];
+
+  if (ptr->size == 0 || ptr->size > URKEL_NODE_SIZE)
+    return 0;
 
   if (!urkel_store_read(store, data, ptr->size, ptr->index, ptr->pos))
     return 0;
@@ -655,7 +662,9 @@ urkel_store_retrieve(data_store_t *store,
   }
 
   CHECK(node->flags & URKEL_FLAG_SAVED);
-  CHECK(ptr->size <= URKEL_VALUE_SIZE);
+
+  if (ptr->size > URKEL_VALUE_SIZE)
+    return 0;
 
   if (!urkel_store_read(store, out, ptr->size, ptr->index, ptr->pos))
     return 0;
