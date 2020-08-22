@@ -1,3 +1,9 @@
+/*!
+ * io.c - io for liburkel
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/handshake-org/liburkel
+ */
+
 #if defined(_WIN32)
 #  include "io_win.c"
 #else

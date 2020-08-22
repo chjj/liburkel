@@ -1,3 +1,9 @@
+/*!
+ * proof.c - proof for liburkel
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/handshake-org/liburkel
+ */
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -5,6 +11,10 @@
 #include "internal.h"
 #include "proof.h"
 #include "util.h"
+
+/*
+ * Proof
+ */
 
 void
 urkel_proof_init(urkel_proof_t *proof) {
@@ -267,7 +277,7 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
     }
   }
 
-  return 1;
+  return len == 0;
 }
 
 static int

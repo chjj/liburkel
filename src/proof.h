@@ -1,9 +1,19 @@
+/*!
+ * proof.h - proof for liburkel
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/handshake-org/liburkel
+ */
+
 #ifndef _URKEL_PROOF_H
 #define _URKEL_PROOF_H
 
 #include <stddef.h>
 #include "bits.h"
 #include "internal.h"
+
+/*
+ * Defines
+ */
 
 #define URKEL_TYPE_DEADEND 0
 #define URKEL_TYPE_SHORT 1
@@ -19,6 +29,10 @@
 #define URKEL_PROOF_PATH_MISMATCH 5
 #define URKEL_PROOF_TOO_DEEP 6
 #define URKEL_PROOF_UNKNOWN_ERROR 7
+
+/*
+ * Structs
+ */
 
 typedef struct urkel_proof_node_s {
   urkel_bits_t prefix;
@@ -38,6 +52,10 @@ typedef struct urkel_proof_s {
   unsigned char value[URKEL_VALUE_SIZE];
   size_t size;
 } urkel_proof_t;
+
+/*
+ * Proof
+ */
 
 void
 urkel_proof_init(urkel_proof_t *proof);

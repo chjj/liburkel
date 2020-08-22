@@ -167,6 +167,7 @@ set(urkel_sources src/bits.c
                   src/nodes.c
                   src/proof.c
                   src/store.c
+                  src/tree.c
                   src/util.c)
 
 set(urkel_includes ${PROJECT_SOURCE_DIR}/include)

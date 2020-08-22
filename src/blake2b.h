@@ -1,8 +1,18 @@
+/*!
+ * blake2b.c - blake2b for liburkel
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/handshake-org/liburkel
+ */
+
 #ifndef _URKEL_BLAKE2B_H
 #define _URKEL_BLAKE2B_H
 
 #include <stddef.h>
 #include <stdint.h>
+
+/*
+ * Structs
+ */
 
 typedef struct urkel_blake2b_s {
   uint64_t h[8];
@@ -11,6 +21,10 @@ typedef struct urkel_blake2b_s {
   size_t buflen;
   size_t outlen;
 } urkel_blake2b_t;
+
+/*
+ * BLAKE2b
+ */
 
 void
 urkel_blake2b_init(urkel_blake2b_t *ctx,

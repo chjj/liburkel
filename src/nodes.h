@@ -1,9 +1,19 @@
+/*!
+ * nodes.h - nodes for liburkel
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/handshake-org/liburkel
+ */
+
 #ifndef _URKEL_NODES_H
 #define _URKEL_NODES_H
 
 #include <stddef.h>
 #include <stdint.h>
 #include "internal.h"
+
+/*
+ * Defines
+ */
 
 #define URKEL_NODE_NULL 0
 #define URKEL_NODE_INTERNAL 1
@@ -23,6 +33,10 @@
   + 2 + URKEL_KEY_SIZE                     \
   + 2 * (URKEL_PTR_SIZE + URKEL_HASH_SIZE) \
 )
+
+/*
+ * Structs
+ */
 
 struct urkel_node_s;
 
@@ -56,6 +70,10 @@ typedef struct urkel_node_s {
   } u;
 } urkel_node_t;
 
+/*
+ * Pointer
+ */
+
 void
 urkel_pointer_init(urkel_pointer_t *ptr);
 
@@ -64,6 +82,10 @@ urkel_pointer_write(const urkel_pointer_t *ptr, unsigned char *data);
 
 void
 urkel_pointer_read(urkel_pointer_t *ptr, const unsigned char *data);
+
+/*
+ * Node
+ */
 
 void
 urkel_node_init(urkel_node_t *node, unsigned int type);
@@ -92,7 +114,7 @@ urkel_node_save(urkel_node_t *node,
                 uint8_t size);
 
 void
-urkel_node_to_hash(urkel_node_t *node, urkel_node_t *out);
+urkel_node_to_hash(const urkel_node_t *node, urkel_node_t *out);
 
 urkel_node_t *
 urkel_node_get(const urkel_node_t *node, unsigned int bit);
@@ -113,7 +135,9 @@ urkel_node_create_internal(const urkel_bits_t *prefix,
                            unsigned int bit);
 
 urkel_node_t *
-urkel_node_create_leaf(const unsigned char *data, size_t size);
+urkel_node_create_leaf(const unsigned char *key,
+                       const unsigned char *value,
+                       size_t size);
 
 urkel_node_t *
 urkel_node_create_hash(const unsigned char *hash);
@@ -139,7 +163,7 @@ size_t
 urkel_node_size(const urkel_node_t *node);
 
 unsigned char *
-urkel_node_write(urkel_node_t *node, unsigned char *data);
+urkel_node_write(const urkel_node_t *node, unsigned char *data);
 
 int
 urkel_node_read(urkel_node_t *node, const unsigned char *data, size_t len);

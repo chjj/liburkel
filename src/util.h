@@ -1,3 +1,9 @@
+/*!
+ * util.h - utils for liburkel
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/handshake-org/liburkel
+ */
+
 #ifndef _URKEL_UTIL_H
 #define _URKEL_UTIL_H
 
@@ -6,6 +12,10 @@
 #include <string.h>
 #include "bits.h"
 #include "internal.h"
+
+/*
+ * Hashing
+ */
 
 void
 urkel_hash_internal(unsigned char *out,
@@ -27,11 +37,19 @@ urkel_hash_value(unsigned char *out,
 void
 urkel_hash_key(unsigned char *out, const void *key, size_t size);
 
+/*
+ * String Functions
+ */
+
 int
 urkel_parse_u32(uint32_t *out, const char *str);
 
 void
 urkel_serialize_u32(char *out, uint32_t num);
+
+/*
+ * Helpers
+ */
 
 void
 urkel_random_bytes(unsigned char *dst, size_t len);
@@ -44,6 +62,10 @@ urkel_checksum(unsigned char *out,
 
 uint32_t
 urkel_murmur3(const unsigned char *data, size_t len, uint32_t seed);
+
+/*
+ * Buffer I/O
+ */
 
 static URKEL_INLINE uint8_t *
 urkel_write8(uint8_t *dst, uint8_t word) {

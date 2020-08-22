@@ -11,12 +11,12 @@
 #include "internal.h"
 #include "khash.h"
 #include "io.h"
-#include "node.h"
+#include "nodes.h"
 #include "store.h"
 #include "util.h"
 
 /*
- * Constants
+ * Defines
  */
 
 /* Max read size on linux, and lower than off_t max. */
@@ -36,7 +36,7 @@
 #define CHACHE_EQUAL(a, b) (memcmp(a, b, URKEL_HASH_SIZE) == 0)
 
 /*
- * Types
+ * Structs
  */
 
 typedef struct urkel_meta_s {
@@ -97,7 +97,7 @@ static urkel_file_t urkel_null_file = {-1, 0, 0};
  */
 
 static void
-urkel_meta_init(const urkel_meta_t *meta) {
+urkel_meta_init(urkel_meta_t *meta) {
   urkel_pointer_init(&meta->meta_ptr);
   urkel_pointer_init(&meta->root_ptr);
   urkel_node_init(&meta->root_node, URKEL_NODE_NULL);
@@ -121,7 +121,7 @@ static int
 urkel_meta_read(urkel_meta_t *meta,
                 const unsigned char *data,
                 const unsigned char *key) {
-  unsigned char *start = data;
+  const unsigned char *start = data;
   uint32_t magic = urkel_read32(data);
   unsigned char expect[20];
 
@@ -403,7 +403,7 @@ urkel_cache_insert(urkel_cache_t *cache, const urkel_node_t *node) {
  */
 
 static void
-urkel_store_path(data_store_t *store, char *path, const char *name) {
+urkel_store_path(const data_store_t *store, char *path, const char *name) {
   memcpy(path, store->prefix, store->prefix_len);
 
   path += store->prefix_len;
@@ -417,12 +417,11 @@ urkel_store_path(data_store_t *store, char *path, const char *name) {
 }
 
 static void
-urkel_store_path_index(data_store_t *store, char *path, uint32_t index) {
+urkel_store_path_index(const data_store_t *store, char *path, uint32_t index) {
   char name[11];
 
   urkel_serialize_u32(name, index);
-
-  return urkel_store_path(store, path, name);
+  urkel_store_path(store, path, name);
 }
 
 static void
@@ -514,14 +513,11 @@ static int
 urkel_store_find_meta(const data_store_t *store,
                       urkel_meta_t *meta,
                       uint64_t *off,
-                      uint32_t index) {
-  unsigned char slab[SLAB_SIZE];
-  char path[URKEL_PATH_SIZE];
+                      const char *path,
+                      unsigned char *slab) {
   urkel_stat_t st;
   int ret = 0;
   int fd;
-
-  urkel_store_path_index(store, path, index);
 
   fd = urkel_fs_open(path, URKEL_O_RDONLY, 0);
 
@@ -567,28 +563,37 @@ urkel_store_recover_state(const data_store_t *store,
                           urkel_meta_t *state,
                           urkel_meta_t *meta,
                           uint32_t *index) {
+  unsigned char *slab = checked_malloc(SLAB_SIZE);
+  char path[URKEL_PATH_SIZE];
   uint64_t off;
+  int ret = 0;
 
   urkel_meta_init(state);
   urkel_meta_init(meta);
 
   while (*index >= 1) {
-    if (urkel_store_find_meta(store, meta, &off, *index)) {
+    urkel_store_path_index(store, path, *index);
+
+    if (urkel_store_find_meta(store, meta, &off, path, slab)) {
       *state = *meta;
       state->meta_ptr.index = *index;
       state->meta_ptr.pos = off;
-      return 1;
+      goto succeed;
     }
 
     if (!urkel_fs_unlink(path))
-      return 0;
+      goto fail;
 
     *index -= 1;
   }
 
   *index = 1;
 
-  return 1;
+succeed:
+  ret = 1;
+fail:
+  free(slab);
+  return ret;
 }
 
 static void
@@ -598,135 +603,6 @@ urkel_store_start(data_store_t *store) {
 
   store->slab.offset = store->current->size;
   store->slab.index = store->current->index;
-}
-
-static int
-urkel_store_init(data_store_t *store, const char *prefix) {
-  size_t prefix_len = strlen(prefix);
-  char path[URKEL_PATH_SIZE];
-  urkel_dirent_t **list;
-  uint32_t index = 0;
-  size_t i, count;
-  int failed = 0;
-  int fd;
-
-  while (prefix_len > 1 && URKEL_IS_SEP(prefix[prefix_len - 1]))
-    prefix_len -= 1;
-
-  if (prefix_len == 0 || prefix_len > URKEL_PATH_LEN - 10)
-    return 0;
-
-  if (!URKEL_IS_ABS(prefix))
-    return 0;
-
-  memcpy(store->prefix, prefix, prefix_len);
-
-  store->prefix[prefix_len] = '\0';
-  store->prefix_len = prefix_len;
-
-  if (!urkel_fs_exists(store->prefix)) {
-    if (!urkel_fs_mkdir(store->prefix, 0750))
-      return 0;
-  }
-
-  urkel_store_path(store, path, "meta");
-
-  if (urkel_fs_exists(path)) {
-    if (!urkel_fs_read_file(path, store->key, KEY_SIZE))
-      return 0;
-  } else {
-    urkel_random_bytes(store->key, KEY_SIZE);
-
-    if (!urkel_fs_write_file(path, 0640, store->key, KEY_SIZE))
-      return 0;
-  }
-
-  if (!urkel_fs_scanddir(store->prefix, &list, &count))
-    return 0;
-
-  for (i = 0; i < count; i++) {
-    uint32_t num;
-
-    if (urkel_parse_u32(&num, list[i]->d_name)) {
-      if (num > 0 && num != index + 1)
-        failed = 1;
-
-      index = num;
-    }
-
-    free(list[i]);
-  }
-
-  free(list);
-
-  if (failed)
-    return 0;
-
-  urkel_store_path(store, path, "lock");
-
-  fd = urkel_fs_open_lock(path, 0640);
-
-  if (fd == -1)
-    return 0;
-
-  if (!urkel_store_recover_state(store,
-                                 &store->state,
-                                 &store->last_meta,
-                                 &index)) {
-    urkel_fs_close_lock(fd);
-    return 0;
-  }
-
-  urkel_slab_init(&store->slab);
-  urkel_filemap_init(&store->files);
-  urkel_cache_init(&store->cache);
-
-  store->lock_fd = fd;
-  store->index = index;
-  store->current = urkel_store_open_file(store, index, WRITE_FLAGS);
-
-  if (!store->current) {
-    urkel_fs_close_lock(fd);
-    return 0;
-  }
-
-  urkel_store_start(store);
-
-  if (!urkel_store_read_root(store, &store->state.root_node,
-                                    &store->state.root_ptr)) {
-    urkel_store_close(store);
-    return 0;
-  }
-
-  return 1;
-}
-
-static void
-urkel_store_uninit(data_store_t *store) {
-  urkel_slab_uninit(&store->slab);
-  urkel_filemap_uninit(&store->files);
-  urkel_cache_uninit(&store->cache);
-  urkel_fs_close_lock(store->lock_fd);
-
-  memset(store, 0, sizeof(*store));
-}
-
-data_store_t *
-urkel_store_open(const char *prefix) {
-  data_store_t *store = checked_malloc(sizeof(data_store_t));
-
-  if (!urkel_store_init(store, prefix)) {
-    free(store);
-    return NULL;
-  }
-
-  return store;
-}
-
-void
-urkel_store_close(data_store_t *store) {
-  urkel_store_uninit(store);
-  free(store);
 }
 
 static int
@@ -821,6 +697,7 @@ urkel_store_read_root(data_store_t *store,
     urkel_node_store(&node, value, size);
   }
 
+  urkel_node_hash(&node);
   urkel_node_to_hash(out, &node);
   urkel_node_uninit(&node);
 
@@ -848,8 +725,8 @@ urkel_store_retrieve(data_store_t *store,
                      const urkel_node_t *node,
                      unsigned char *out,
                      size_t *size) {
-  urkel_leaf_t *leaf = &node->u.leaf;
-  urkel_pointer_t *ptr = &leaf->vptr;
+  const urkel_leaf_t *leaf = &node->u.leaf;
+  const urkel_pointer_t *ptr = &leaf->vptr;
 
   CHECK(node->type != URKEL_NODE_LEAF);
 
@@ -895,7 +772,7 @@ urkel_store_resolve(data_store_t *store, urkel_node_t *node) {
 }
 
 uint64_t
-urkel_store_write_node(data_store_t *store, const urkel_node_t *node) {
+urkel_store_write_node(data_store_t *store, urkel_node_t *node) {
   size_t size = urkel_node_size(node);
   size_t written = store->slab.written;
   uint32_t index;
@@ -919,8 +796,8 @@ urkel_store_write_node(data_store_t *store, const urkel_node_t *node) {
 }
 
 uint64_t
-urkel_store_write_value(data_store_t *store, const urkel_node_t *node) {
-  urkel_leaf_t *node = &node->u.leaf;
+urkel_store_write_value(data_store_t *store, urkel_node_t *node) {
+  urkel_leaf_t *leaf = &node->u.leaf;
   uint32_t index;
   uint64_t pos;
   size_t size;
@@ -981,7 +858,7 @@ urkel_store_write_meta(data_store_t *store,
   store->slab.written += META_SIZE;
 
   state->meta_ptr.index = store->slab.index;
-  state->meta_ptr.pos = store->slab.pos - META_SIZE;
+  state->meta_ptr.pos = urkel_slab_pos(&store->slab) - META_SIZE;
 }
 
 int
@@ -998,8 +875,8 @@ urkel_store_commit(data_store_t *store, urkel_node_t *root) {
 
   store->state = state;
 
-  if (state->root_node.type != URKEL_NODE_NULL)
-    urkel_cache_insert(&store->cache, &state->root_node);
+  if (state.root_node.type != URKEL_NODE_NULL)
+    urkel_cache_insert(&store->cache, &state.root_node);
 
   return 1;
 }
@@ -1016,7 +893,7 @@ urkel_store_read_meta(data_store_t *store,
   return urkel_meta_read(meta, data, store->key);
 }
 
-static int
+int
 urkel_store_read_history(data_store_t *store,
                          urkel_node_t *root,
                          const unsigned char *root_hash) {
@@ -1049,20 +926,32 @@ urkel_store_read_history(data_store_t *store,
     if (!urkel_store_read_meta(store, &meta, meta_ptr))
       return 0;
 
-    root_ptr = &meta->root_ptr;
+    root_ptr = &meta.root_ptr;
 
     if (!urkel_store_read_root(store, &node, root_ptr))
       return 0;
 
     store->last_meta = meta;
 
-    if (memcmp(node->hash, root_hash, URKEL_HASH_SIZE) == 0) {
+    if (memcmp(node.hash, root_hash, URKEL_HASH_SIZE) == 0) {
       *root = node;
       break;
     }
   }
 
   return 1;
+}
+
+int
+urkel_store_has_history(data_store_t *store, const unsigned char *root_hash) {
+  urkel_node_t root;
+  int ret;
+
+  ret = urkel_store_read_history(store, &root, root_hash);
+
+  urkel_node_uninit(&root);
+
+  return ret;
 }
 
 urkel_node_t *
@@ -1075,4 +964,133 @@ urkel_store_get_history(data_store_t *store, const unsigned char *root_hash) {
   }
 
   return root;
+}
+
+static int
+urkel_store_init(data_store_t *store, const char *prefix) {
+  size_t prefix_len = strlen(prefix);
+  char path[URKEL_PATH_SIZE];
+  urkel_dirent_t **list;
+  uint32_t index = 0;
+  size_t i, count;
+  int failed = 0;
+  int fd;
+
+  while (prefix_len > 1 && URKEL_IS_SEP(prefix[prefix_len - 1]))
+    prefix_len -= 1;
+
+  if (prefix_len == 0 || prefix_len > URKEL_PATH_LEN - 10)
+    return 0;
+
+  if (!URKEL_IS_ABS(prefix))
+    return 0;
+
+  memcpy(store->prefix, prefix, prefix_len);
+
+  store->prefix[prefix_len] = '\0';
+  store->prefix_len = prefix_len;
+
+  if (!urkel_fs_exists(store->prefix)) {
+    if (!urkel_fs_mkdir(store->prefix, 0750))
+      return 0;
+  }
+
+  urkel_store_path(store, path, "meta");
+
+  if (urkel_fs_exists(path)) {
+    if (!urkel_fs_read_file(path, store->key, KEY_SIZE))
+      return 0;
+  } else {
+    urkel_random_bytes(store->key, KEY_SIZE);
+
+    if (!urkel_fs_write_file(path, 0640, store->key, KEY_SIZE))
+      return 0;
+  }
+
+  if (!urkel_fs_scandir(store->prefix, &list, &count))
+    return 0;
+
+  for (i = 0; i < count; i++) {
+    uint32_t num;
+
+    if (urkel_parse_u32(&num, list[i]->d_name)) {
+      if (num > 0 && num != index + 1)
+        failed = 1;
+
+      index = num;
+    }
+
+    free(list[i]);
+  }
+
+  free(list);
+
+  if (failed)
+    return 0;
+
+  urkel_store_path(store, path, "lock");
+
+  fd = urkel_fs_open_lock(path, 0640);
+
+  if (fd == -1)
+    return 0;
+
+  if (!urkel_store_recover_state(store,
+                                 &store->state,
+                                 &store->last_meta,
+                                 &index)) {
+    urkel_fs_close_lock(fd);
+    return 0;
+  }
+
+  urkel_slab_init(&store->slab);
+  urkel_filemap_init(&store->files);
+  urkel_cache_init(&store->cache);
+
+  store->lock_fd = fd;
+  store->index = index;
+  store->current = urkel_store_open_file(store, index, WRITE_FLAGS);
+
+  if (!store->current) {
+    urkel_fs_close_lock(fd);
+    return 0;
+  }
+
+  urkel_store_start(store);
+
+  if (!urkel_store_read_root(store, &store->state.root_node,
+                                    &store->state.root_ptr)) {
+    urkel_store_close(store);
+    return 0;
+  }
+
+  return 1;
+}
+
+static void
+urkel_store_uninit(data_store_t *store) {
+  urkel_slab_uninit(&store->slab);
+  urkel_filemap_uninit(&store->files);
+  urkel_cache_uninit(&store->cache);
+  urkel_fs_close_lock(store->lock_fd);
+
+  memset(store, 0, sizeof(*store));
+}
+
+data_store_t *
+urkel_store_open(const char *prefix) {
+  data_store_t *store = checked_malloc(sizeof(data_store_t));
+
+  if (!urkel_store_init(store, prefix)) {
+    free(store);
+    return NULL;
+  }
+
+  return store;
+}
+
+void
+urkel_store_close(data_store_t *store) {
+  urkel_store_uninit(store);
+  free(store);
 }

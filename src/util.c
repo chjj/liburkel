@@ -1,3 +1,9 @@
+/*!
+ * util.c - utils for liburkel
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/handshake-org/liburkel
+ */
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -7,9 +13,17 @@
 #include "io.h"
 #include "util.h"
 
+/*
+ * Constants
+ */
+
 static const unsigned char SKIP_PREFIX[1] = {0x02};
 static const unsigned char INTERNAL_PREFIX[1] = {0x01};
 static const unsigned char LEAF_PREFIX[1] = {0x00};
+
+/*
+ * Hashing
+ */
 
 void
 urkel_hash_internal(unsigned char *out,
@@ -71,6 +85,10 @@ urkel_hash_key(unsigned char *out, const void *key, size_t size) {
   urkel_blake2b_final(&ctx, out);
 }
 
+/*
+ * String Functions
+ */
+
 int
 urkel_parse_u32(uint32_t *out, const char *str) {
   uint64_t num = 0;
@@ -116,6 +134,10 @@ urkel_serialize_u32(char *out, uint32_t num) {
     num /= 10;
   }
 }
+
+/*
+ * Helpers
+ */
 
 void
 urkel_random_bytes(unsigned char *dst, size_t len) {

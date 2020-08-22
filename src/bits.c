@@ -1,7 +1,17 @@
+/*!
+ * bits.c - bits management for liburkel
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/handshake-org/liburkel
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include "bits.h"
 #include "internal.h"
+
+/*
+ * Bits
+ */
 
 void
 urkel_bits_init(urkel_bits_t *bits, size_t size) {

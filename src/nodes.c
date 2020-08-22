@@ -1,3 +1,9 @@
+/*!
+ * nodes.c - nodes for liburkel
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/handshake-org/liburkel
+ */
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -6,7 +12,15 @@
 #include "nodes.h"
 #include "util.h"
 
+/*
+ * Constants
+ */
+
 static urkel_node_t urkel_node_null;
+
+/*
+ * Pointer
+ */
 
 void
 urkel_pointer_init(urkel_pointer_t *ptr) {
@@ -41,6 +55,10 @@ urkel_pointer_read(urkel_pointer_t *ptr, const unsigned char *data) {
   ptr->pos = pos >> 1;
   ptr->size = (hi << 9) | (lo << 8) | size;
 }
+
+/*
+ * Node
+ */
 
 void
 urkel_node_init(urkel_node_t *node, unsigned int type) {
@@ -196,9 +214,7 @@ urkel_node_save(urkel_node_t *node,
 }
 
 void
-urkel_node_to_hash(urkel_node_t *node, urkel_node_t *out) {
-  urkel_node_hash(node);
-
+urkel_node_to_hash(const urkel_node_t *node, urkel_node_t *out) {
   CHECK(node->flags & URKEL_FLAG_HASHED);
   CHECK(node->flags & URKEL_FLAG_WRITTEN);
 
@@ -286,10 +302,15 @@ urkel_node_create_internal(const urkel_bits_t *prefix,
 }
 
 urkel_node_t *
-urkel_node_create_leaf(const unsigned char *data, size_t size) {
+urkel_node_create_leaf(const unsigned char *key,
+                       const unsigned char *value,
+                       size_t size) {
   urkel_node_t *node = urkel_node_create(URKEL_NODE_LEAF);
+  urkel_leaf_t *leaf = &node->u.leaf;
 
-  urkel_node_store(node, data, size);
+  memcpy(leaf->key, key, URKEL_KEY_SIZE);
+
+  urkel_node_store(node, value, size);
   urkel_node_hash(node);
 
   return node;
@@ -513,7 +534,7 @@ urkel_node_size(const urkel_node_t *node) {
 }
 
 unsigned char *
-urkel_node_write(urkel_node_t *node, unsigned char *data) {
+urkel_node_write(const urkel_node_t *node, unsigned char *data) {
   switch (node->type) {
     case URKEL_NODE_NULL: {
       urkel_abort();
@@ -521,10 +542,10 @@ urkel_node_write(urkel_node_t *node, unsigned char *data) {
     }
 
     case URKEL_NODE_INTERNAL: {
-      urkel_internal_t *internal = &node->u.internal;
-      urkel_bits_t *prefix = &internal->prefix;
-      urkel_node_t *left = internal->left;
-      urkel_node_t *right = internal->right;
+      const urkel_internal_t *internal = &node->u.internal;
+      const urkel_bits_t *prefix = &internal->prefix;
+      const urkel_node_t *left = internal->left;
+      const urkel_node_t *right = internal->right;
       unsigned int type = (urkel_node_flags(node) << 4) | URKEL_NODE_INTERNAL;
       size_t bytes = (prefix->size + 7) / 8;
 
@@ -540,9 +561,8 @@ urkel_node_write(urkel_node_t *node, unsigned char *data) {
 
       CHECK(left->flags & URKEL_FLAG_WRITTEN);
       CHECK(right->flags & URKEL_FLAG_WRITTEN);
-
-      urkel_node_hash(left);
-      urkel_node_hash(right);
+      CHECK(left->flags & URKEL_FLAG_HASHED);
+      CHECK(right->flags & URKEL_FLAG_HASHED);
 
       data = urkel_pointer_write(&left->ptr, data);
       data = urkel_write(data, left->hash, URKEL_HASH_SIZE);
@@ -554,7 +574,7 @@ urkel_node_write(urkel_node_t *node, unsigned char *data) {
     }
 
     case URKEL_NODE_LEAF: {
-      urkel_leaf_t *leaf = &node->u.leaf;
+      const urkel_leaf_t *leaf = &node->u.leaf;
 
       CHECK(node->flags & URKEL_FLAG_SAVED);
 

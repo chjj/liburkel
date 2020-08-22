@@ -1,8 +1,18 @@
+/*!
+ * io.h - io for liburkel
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/handshake-org/liburkel
+ */
+
 #ifndef URKEL_IO_H_
 #define URKEL_IO_H_
 
 #include <stddef.h>
 #include <stdint.h>
+
+/*
+ * Defines
+ */
 
 #define URKEL_O_RDONLY   (1 <<  0)
 #define URKEL_O_WRONLY   (1 <<  1)
@@ -77,6 +87,10 @@
 #  define URKEL_IS_ABS(s) ((s)[0] == '/')
 #endif
 
+/*
+ * Structs
+ */
+
 typedef struct urkel_iovec_s {
   void *iov_base;
   size_t iov_len;
@@ -113,6 +127,10 @@ struct urkel_rwlock_s;
 
 typedef struct urkel_mutex_s urkel_mutex_t;
 typedef struct urkel_rwlock_s urkel_rwlock_t;
+
+/*
+ * Filesystem
+ */
 
 int
 urkel_fs_open(const char *name, int flags, uint32_t mode);
@@ -221,5 +239,27 @@ urkel_rwlock_unlock(urkel_rwlock_t *mtx);
 
 void
 urkel_time_get(urkel_timespec_t *ts);
+
+/*
+ * High-level Calls
+ */
+
+int
+urkel_fs_read_file(const char *name, void *dst, size_t len);
+
+int
+urkel_fs_write_file(const char *name,
+                    uint32_t mode,
+                    const void *dst,
+                    size_t len);
+
+int
+urkel_fs_open_lock(const char *name, uint32_t mode);
+
+void
+urkel_fs_close_lock(int fd);
+
+int
+urkel_fs_exists(const char *name);
 
 #endif /* URKEL_IO_H_ */

@@ -1,3 +1,9 @@
+/*!
+ * io_posix.c - posix io for liburkel
+ * Copyright (c) 2020, Christopher Jeffrey (MIT License).
+ * https://github.com/handshake-org/liburkel
+ */
+
 #undef HAVE_FLOCK
 
 #if defined(__ANDROID__)
