@@ -20,9 +20,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "io.h"
 
@@ -352,31 +352,18 @@ fail:
   return ret;
 }
 
-static int
-urkel_fs__stat_impl(const char *name, urkel_stat_t *st, int soft) {
-  if (urkel_fs__stat_path(name, st, soft))
-    return 1;
-
-  if (soft) {
-    if (error == ERROR_SYMLINK_NOT_SUPPORTED
-        || error == ERROR_NOT_A_REPARSE_POINT) {
-      return urkel_fs__stat_path(name, st, 0);
-    }
-  }
-
-  return 0;
-}
-
 int
 urkel_fs_stat(const char *name, urkel_stat_t *out) {
-  return urkel_fs__stat_impl(name, out, 0);
+  return urkel_fs__stat_path(name, out, 0);
 }
 
 int
 urkel_fs_lstat(const char *name, urkel_stat_t *out) {
-  return urkel_fs__stat_impl(name, out, 1);
-}
+  if (urkel_fs__stat_path(name, out, 1))
+    return 1;
 
+  return urkel_fs__stat_path(name, out, 0);
+}
 
 int
 urkel_fs_chmod(const char *name, uint32_t mode) {
@@ -430,12 +417,11 @@ urkel__dirent_compare(const void *x, const void *y) {
 int
 urkel_fs_scandir(const char *name, urkel_dirent_t ***out, size_t *count) {
   HANDLE handle = INVALID_HANDLE_VALUE;
-  const char buf[URKEL_PATH_MAX + 1];
+  char buf[URKEL_PATH_MAX + 1];
   size_t len = strlen(name);
   urkel_dirent_t **list = NULL;
   urkel_dirent_t *item = NULL;
   WIN32_FIND_DATAA fdata;
-  const char *fmt;
   size_t size = 8;
   size_t i = 0;
   size_t j;
@@ -535,7 +521,7 @@ fail:
 
 int
 urkel_fs_fstat(int fd, urkel_stat_t *out) {
-  HANDLE handle = _get_osfhandle(fd);
+  HANDLE handle = (HANDLE)_get_osfhandle(fd);
 
   if (handle == INVALID_HANDLE_VALUE)
     return 0;
@@ -545,7 +531,8 @@ urkel_fs_fstat(int fd, urkel_stat_t *out) {
 
 int64_t
 urkel_fs_seek(int fd, int64_t pos, int whence) {
-  HANDLE handle = _get_osfhandle(fd);
+  HANDLE handle = (HANDLE)_get_osfhandle(fd);
+  LARGE_INTEGER pos_;
   LARGE_INTEGER ptr;
   DWORD method = 0;
 
@@ -567,7 +554,9 @@ urkel_fs_seek(int fd, int64_t pos, int whence) {
       break;
   }
 
-  if (!SetFilePointerEx(handle, pos, &ptr, method))
+  pos_.QuadPart = pos;
+
+  if (!SetFilePointerEx(handle, pos_, &ptr, method))
     return -1;
 
   return ptr.QuadPart;
@@ -580,7 +569,7 @@ urkel_fs_tell(int fd) {
 
 int
 urkel_fs_read(int fd, void *dst, size_t len) {
-  HANDLE handle = _get_osfhandle(fd);
+  HANDLE handle = (HANDLE)_get_osfhandle(fd);
   unsigned char *raw = dst;
   DWORD nread;
   int result;
@@ -606,8 +595,8 @@ urkel_fs_read(int fd, void *dst, size_t len) {
 
 int
 urkel_fs_write(int fd, const void *src, size_t len) {
-  HANDLE handle = _get_osfhandle(fd);
-  unsigned char *raw = src;
+  HANDLE handle = (HANDLE)_get_osfhandle(fd);
+  const unsigned char *raw = src;
   DWORD nread;
   int result;
 
@@ -632,7 +621,7 @@ urkel_fs_write(int fd, const void *src, size_t len) {
 
 int
 urkel_fs_pread(int fd, void *dst, size_t len, int64_t pos) {
-  HANDLE handle = _get_osfhandle(fd);
+  HANDLE handle = (HANDLE)_get_osfhandle(fd);
   LARGE_INTEGER zero, old, pos_;
   unsigned char *raw = dst;
   OVERLAPPED overlap;
@@ -676,9 +665,9 @@ urkel_fs_pread(int fd, void *dst, size_t len, int64_t pos) {
 
 int
 urkel_fs_pwrite(int fd, const void *src, size_t len, int64_t pos) {
-  HANDLE handle = _get_osfhandle(fd);
+  HANDLE handle = (HANDLE)_get_osfhandle(fd);
   LARGE_INTEGER zero, old, pos_;
-  unsigned char *raw = src;
+  const unsigned char *raw = src;
   OVERLAPPED overlap;
   int restore = 0;
   DWORD nread;
@@ -720,7 +709,7 @@ urkel_fs_pwrite(int fd, const void *src, size_t len, int64_t pos) {
 
 int
 urkel_fs_ftruncate(int fd, int64_t size) {
-  HANDLE handle = _get_osfhandle(fd);
+  HANDLE handle = (HANDLE)_get_osfhandle(fd);
   LARGE_INTEGER pos;
 
   if (handle == INVALID_HANDLE_VALUE)
@@ -739,7 +728,7 @@ urkel_fs_ftruncate(int fd, int64_t size) {
 
 int
 urkel_fs_fsync(int fd) {
-  HANDLE handle = _get_osfhandle(fd);
+  HANDLE handle = (HANDLE)_get_osfhandle(fd);
 
   if (handle == INVALID_HANDLE_VALUE)
     return 0;
@@ -798,7 +787,7 @@ urkel_ps_cwd(char *buf, size_t size) {
 char *
 urkel_path_resolve(const char *path) {
   char buf[MAX_PATH + 1];
-  DWORD len = GetFullPathNameA(path, buf, sizeof(buf), NULL);
+  DWORD len = GetFullPathNameA(path, sizeof(buf), buf, NULL);
   char *out;
 
   if (len < 1 || len > MAX_PATH)
@@ -836,25 +825,25 @@ urkel_mutex_create(void) {
     return NULL;
   }
 
-  InitializeCriticalSection(mtx->handle);
+  InitializeCriticalSection(&mtx->handle);
 
   return mtx;
 }
 
 void
 urkel_mutex_destroy(urkel__mutex_t *mtx) {
-  DeleteCriticalSection(mtx->handle);
+  DeleteCriticalSection(&mtx->handle);
   free(mtx);
 }
 
 void
 urkel_mutex_lock(urkel__mutex_t *mtx) {
-  EnterCriticalSection(mtx->handle);
+  EnterCriticalSection(&mtx->handle);
 }
 
 void
 urkel_mutex_unlock(urkel__mutex_t *mtx) {
-  LeaveCriticalSection(mtx->handle);
+  LeaveCriticalSection(&mtx->handle);
 }
 
 /*

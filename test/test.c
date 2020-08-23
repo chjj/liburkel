@@ -4,6 +4,7 @@
  * https://github.com/handshake-org/liburkel
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <urkel.h>
@@ -244,6 +245,8 @@ main(void) {
   ASSERT(urkel_destroy(DB_PATH));
 
   free(kvs);
+
+  printf("Success.\n");
 
   return 0;
 }
