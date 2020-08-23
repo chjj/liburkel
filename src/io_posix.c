@@ -1042,7 +1042,8 @@ urkel_ps_cwd(char *buf, size_t size) {
 char *
 urkel_path_resolve(const char *path) {
   size_t plen = path != NULL ? strlen(path) : 0;
-  size_t clen;
+  size_t max = 8192;
+  size_t olen;
   char *out;
 
   while (plen > 1 && path[plen - 1] == '/')
@@ -1050,41 +1051,42 @@ urkel_path_resolve(const char *path) {
 
   if (plen > 0 && path[0] == '/') {
     out = malloc(plen + 1);
+    olen = plen;
 
     if (out == NULL)
       return NULL;
 
-    memcpy(out, path, plen + 1);
+    memcpy(out, path, plen);
   } else {
-    out = malloc(URKEL_PATH_MAX + 1);
+    out = malloc(max + 1);
 
     if (out == NULL)
       return NULL;
 
-    if (!urkel_ps_cwd(out, URKEL_PATH_MAX + 1)) {
+    if (!urkel_ps_cwd(out, max + 1)) {
       free(out);
       return NULL;
     }
 
-    if (plen == 0)
-      return out;
+    olen = strlen(out);
 
-    if (plen == 1 && path[0] == '.')
-      return out;
-
-    clen = strlen(out);
-
-    if (clen + 1 + plen > URKEL_PATH_MAX) {
+    if (olen + 1 + plen > max) {
       free(out);
       return NULL;
     }
 
-    out[clen] = '/';
+    if (plen != 0) {
+      out[olen++] = '/';
 
-    memcpy(out + clen + 1, path, plen + 1);
+      memcpy(out + olen, path, plen);
+
+      olen += plen;
+    }
   }
 
-  return out;
+  out[olen++] = '\0';
+
+  return realloc(out, olen);
 }
 
 /*
