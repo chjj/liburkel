@@ -53,7 +53,23 @@ fail:
 }
 
 int
-urkel_fs_exists(const char *name) {
-  urkel_stat_t st;
-  return urkel_fs_lstat(name, &st);
+urkel_fs_open_lock(const char *name, uint32_t mode) {
+  int flags = URKEL_O_RDWR | URKEL_O_CREAT | URKEL_O_TRUNC;
+  int fd = urkel_fs_open(name, flags, mode);
+
+  if (fd == -1)
+    return -1;
+
+  if (!urkel_fs_flock(fd, URKEL_LOCK_EX)) {
+    urkel_fs_close(fd);
+    return -1;
+  }
+
+  return fd;
+}
+
+void
+urkel_fs_close_lock(int fd) {
+  urkel_fs_flock(fd, URKEL_LOCK_UN);
+  urkel_fs_close(fd);
 }

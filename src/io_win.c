@@ -366,6 +366,11 @@ urkel_fs_lstat(const char *name, urkel_stat_t *out) {
 }
 
 int
+urkel_fs_exists(const char *name) {
+  return GetFileAttributesA(name) != INVALID_FILE_ATTRIBUTES;
+}
+
+int
 urkel_fs_chmod(const char *name, uint32_t mode) {
   return _chmod(name, urkel_fs__mode_api_to_os(mode)) != -1;
 }
@@ -743,25 +748,25 @@ urkel_fs_fdatasync(int fd) {
 
 int
 urkel_fs_flock(int fd, int operation) {
-  (void)fd;
-  (void)operation;
+  HANDLE handle = (HANDLE)_get_osfhandle(fd);
+
+  if (handle == INVALID_HANDLE_VALUE)
+    return 0;
+
+  switch (operation) {
+    case URKEL_LOCK_SH:
+    case URKEL_LOCK_EX:
+      return LockFile(handle, 0, 0, MAXDWORD, MAXDWORD);
+    case URKEL_LOCK_UN:
+      return UnlockFile(handle, 0, 0, MAXDWORD, MAXDWORD);
+  }
+
   return 0;
 }
 
 int
 urkel_fs_close(int fd) {
   return _close(fd) != -1;
-}
-
-int
-urkel_fs_open_lock(const char *name, uint32_t mode) {
-  int flags = URKEL_O_RDWR | URKEL_O_CREAT | URKEL_O_TRUNC | URKEL_O_EXLOCK;
-  return urkel_fs_open(name, flags, mode);
-}
-
-void
-urkel_fs_close_lock(int fd) {
-  urkel_fs_close(fd);
 }
 
 /*

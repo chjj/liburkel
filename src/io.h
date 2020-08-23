@@ -141,6 +141,9 @@ int
 urkel_fs_lstat(const char *name, urkel_stat_t *out);
 
 int
+urkel_fs_exists(const char *name);
+
+int
 urkel_fs_chmod(const char *name, uint32_t mode);
 
 int
@@ -196,12 +199,6 @@ urkel_fs_flock(int fd, int operation);
 
 int
 urkel_fs_close(int fd);
-
-int
-urkel_fs_open_lock(const char *name, uint32_t mode);
-
-void
-urkel_fs_close_lock(int fd);
 
 /*
  * Process
@@ -283,6 +280,9 @@ urkel_fs_write_file(const char *name,
                     size_t len);
 
 int
-urkel_fs_exists(const char *name);
+urkel_fs_open_lock(const char *name, uint32_t mode);
+
+void
+urkel_fs_close_lock(int fd);
 
 #endif /* URKEL_IO_H_ */
