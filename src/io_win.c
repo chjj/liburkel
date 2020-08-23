@@ -8,11 +8,8 @@
  *   https://github.com/libuv/libuv
  */
 
-#undef WIN32_LEAN_AND_MEAN
 #undef _WIN32_WINNT
-
-#define WIN32_LEAN_AND_MEAN
-#define _WIN32_WINNT 0x0600
+#define _WIN32_WINNT 0x0501
 
 #include <windows.h>
 #include <io.h>
@@ -272,7 +269,7 @@ urkel_fs_chmod(const char *name, uint32_t mode) {
   if (!(mode & URKEL_S_IWUSR))
     attributes |= FILE_ATTRIBUTE_READONLY;
 
-  return SetFileAttributesA(name, attributes);
+  return SetFileAttributesA(name, attributes) != 0;
 }
 
 int
@@ -292,23 +289,23 @@ urkel_fs_truncate(const char *name, int64_t size) {
 
 int
 urkel_fs_rename(const char *oldpath, const char *newpath) {
-  return MoveFileExA(oldpath, newpath, MOVEFILE_REPLACE_EXISTING);
+  return MoveFileExA(oldpath, newpath, MOVEFILE_REPLACE_EXISTING) != 0;
 }
 
 int
 urkel_fs_unlink(const char *name) {
-  return DeleteFileA(name);
+  return DeleteFileA(name) != 0;
 }
 
 int
 urkel_fs_mkdir(const char *name, uint32_t mode) {
   (void)mode;
-  return CreateDirectoryA(name, NULL);
+  return CreateDirectoryA(name, NULL) != 0;
 }
 
 int
 urkel_fs_rmdir(const char *name) {
-  return RemoveDirectoryA(name);
+  return RemoveDirectoryA(name) != 0;
 }
 
 static int
@@ -638,7 +635,7 @@ urkel_fs_fsync(int fd) {
   if (handle == INVALID_HANDLE_VALUE)
     return 0;
 
-  return FlushFileBuffers(handle);
+  return FlushFileBuffers(handle) != 0;
 }
 
 int
@@ -666,7 +663,7 @@ urkel_fs_flock(int fd, int operation) {
 
 int
 urkel_fs_close(int fd) {
-  return _close(fd) != -1;
+  return _close(fd) == 0;
 }
 
 /*
@@ -777,12 +774,12 @@ urkel_file_close(urkel_file_t *file) {
   memcpy(&mapping, file->_storage, sizeof(HANDLE));
 
   if (file->base != NULL) {
-    ret &= UnmapViewOfFile(file->base) == TRUE;
-    ret &= CloseHandle(mapping) == TRUE;
+    ret &= (UnmapViewOfFile(file->base) != 0);
+    ret &= (CloseHandle(mapping) != 0);
   }
 
   if (file->fd != -1)
-    ret &= _close(file->fd) != -1;
+    ret &= (_close(file->fd) == 0);
 
   free(file);
 
