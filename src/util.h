@@ -52,7 +52,7 @@ urkel_serialize_u32(char *out, uint32_t num);
  */
 
 void
-urkel_random_bytes(unsigned char *dst, size_t len);
+urkel_random_key(unsigned char *key);
 
 unsigned char *
 urkel_checksum(unsigned char *out,

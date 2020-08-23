@@ -140,36 +140,19 @@ urkel_serialize_u32(char *out, uint32_t num) {
  */
 
 void
-urkel_random_bytes(unsigned char *dst, size_t len) {
+urkel_random_key(unsigned char *key) {
   /* Does not need to be cryptographically
      strong, just needs to be _different_
      from everyone else to make an attack
      not worth trying. Predicting one user's
      key does nothing to help an attacker. */
-  urkel_timespec_t ts;
-  unsigned char hash[32];
-  size_t max = 32;
-  urkel_blake2b_t ctx;
+  if (!urkel_sys_random(key, 32)) {
+    urkel_timespec_t ts;
 
-  if (urkel_sys_random(dst, len))
-    return;
+    memset(&ts, 0, sizeof(ts));
 
-  memset(&ts, 0, sizeof(ts));
-
-  urkel_time_get(&ts);
-
-  while (len > 0) {
-    if (max > len)
-      max = len;
-
-    urkel_blake2b_init(&ctx, 32, (unsigned char *)&len, sizeof(len));
-    urkel_blake2b_update(&ctx, &ts, sizeof(ts));
-    urkel_blake2b_final(&ctx, hash);
-
-    memcpy(dst, hash, max);
-
-    dst += max;
-    len -= max;
+    urkel_time_get(&ts);
+    urkel_hash_key(key, &ts, sizeof(ts));
   }
 }
 
@@ -236,4 +219,3 @@ urkel_murmur3(const unsigned char *data, size_t len, uint32_t seed) {
 
   return h1;
 }
-

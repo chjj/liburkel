@@ -844,7 +844,7 @@ urkel_store_init_meta(data_store_t *store) {
   if (urkel_fs_exists(path))
     return urkel_fs_read_file(path, store->key, KEY_SIZE);
 
-  urkel_random_bytes(store->key, KEY_SIZE);
+  urkel_random_key(store->key);
 
   return urkel_fs_write_file(path, 0640, store->key, KEY_SIZE);
 }
@@ -1032,10 +1032,15 @@ urkel_store_init(data_store_t *store, const char *prefix) {
 
 static void
 urkel_store_uninit(data_store_t *store) {
+  char path[URKEL_PATH_MAX + 1];
+
+  urkel_store_path(store, path, "lock");
+
   urkel_slab_uninit(&store->slab);
   urkel_filemap_uninit(&store->files);
   urkel_cache_uninit(&store->cache);
   urkel_fs_close_lock(store->lock_fd);
+  urkel_fs_unlink(path);
 
   memset(store, 0, sizeof(*store));
 }
