@@ -309,9 +309,26 @@ else()
     target_link_libraries(urkel_test_static PRIVATE urkel_static)
     add_test(NAME test_static COMMAND urkel_test_static)
 
+    find_program(URKEL_VALGRIND valgrind)
+
+    if(URKEL_VALGRIND)
+      add_test(NAME test_valgrind COMMAND ${URKEL_VALGRIND}
+                                          --leak-check=full
+                                          --error-exitcode=1
+                                          $<TARGET_FILE:urkel_test>)
+    endif()
+
     if(URKEL_ROOT AND URKEL_MAKE)
       add_custom_target(bench COMMAND urkel_bench)
       add_custom_target(check COMMAND ${CMAKE_MAKE_PROGRAM} test)
+
+      if(URKEL_VALGRIND)
+        add_custom_target(valgrind COMMAND ${URKEL_VALGRIND}
+                                           --leak-check=full
+                                           --error-exitcode=1
+                                           $<TARGET_FILE:urkel_test>
+                                   DEPENDS urkel_test)
+      endif()
     endif()
   endif()
 endif()
