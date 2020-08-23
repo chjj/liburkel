@@ -10,56 +10,27 @@
 #include <urkel.h>
 #include "utils.h"
 
-#ifdef __wasi__
-#  define DB_PATH "/urkel_db_test"
-#else
-#  define DB_PATH "./urkel_db_test"
-#endif
-
-#define NUM_VALUES 1000
-
-typedef struct urkel_kv_s {
-  unsigned char key[32];
-  unsigned char value[64];
-} urkel_kv_t;
-
-static int
-urkel_kv_compare(const void *x, const void *y) {
-  const unsigned char *a = ((const urkel_kv_t *)x)->key;
-  const unsigned char *b = ((const urkel_kv_t *)y)->key;
-  return memcmp(a, b, 32);
-}
+#define URKEL_ITERATIONS 1000
 
 int
 main(void) {
+  urkel_kv_t *kvs = urkel_kv_generate(URKEL_ITERATIONS);
   unsigned char old_root[32];
-  urkel_kv_t *kvs;
   urkel_tx_t *tx;
   urkel_t *db;
   size_t i;
 
-  urkel_destroy(DB_PATH);
+  urkel_destroy(URKEL_PATH);
 
-  db = urkel_open(DB_PATH);
-  kvs = malloc(NUM_VALUES * sizeof(urkel_kv_t));
+  db = urkel_open(URKEL_PATH);
 
   ASSERT(db != NULL);
-  ASSERT(kvs != NULL);
-
-  for (i = 0; i < NUM_VALUES; i++) {
-    unsigned char *key = kvs[i].key;
-    unsigned char *value = kvs[i].value;
-
-    urkel_hash(key, &i, sizeof(i));
-    urkel_hash(value + 0, key, 32);
-    urkel_hash(value + 32, value, 32);
-  }
 
   tx = urkel_tx_create(db, NULL);
 
   ASSERT(tx != NULL);
 
-  for (i = 0; i < NUM_VALUES; i++) {
+  for (i = 0; i < URKEL_ITERATIONS; i++) {
     unsigned char *key = kvs[i].key;
     unsigned char *value = kvs[i].value;
     unsigned char result[64];
@@ -80,7 +51,7 @@ main(void) {
 
   ASSERT(urkel_tx_commit(tx));
 
-  for (i = 0; i < NUM_VALUES; i++) {
+  for (i = 0; i < URKEL_ITERATIONS; i++) {
     unsigned char *key = kvs[i].key;
     unsigned char *value = kvs[i].value;
     unsigned char result[64];
@@ -96,7 +67,7 @@ main(void) {
   urkel_tx_destroy(tx);
   urkel_close(db);
 
-  db = urkel_open(DB_PATH);
+  db = urkel_open(URKEL_PATH);
 
   ASSERT(db != NULL);
 
@@ -104,7 +75,7 @@ main(void) {
 
   ASSERT(tx != NULL);
 
-  for (i = 0; i < NUM_VALUES; i++) {
+  for (i = 0; i < URKEL_ITERATIONS; i++) {
     unsigned char *key = kvs[i].key;
     unsigned char *value = kvs[i].value;
     unsigned char result[64];
@@ -125,7 +96,7 @@ main(void) {
 
     ASSERT(iter != NULL);
 
-    qsort(kvs, NUM_VALUES, sizeof(urkel_kv_t), urkel_kv_compare);
+    urkel_kv_sort(kvs, URKEL_ITERATIONS);
 
     i = 0;
 
@@ -136,7 +107,7 @@ main(void) {
       i += 1;
     }
 
-    ASSERT(i == NUM_VALUES);
+    ASSERT(i == URKEL_ITERATIONS);
 
     urkel_iter_destroy(iter);
   }
@@ -163,7 +134,7 @@ main(void) {
 
   urkel_root(db, old_root);
 
-  for (i = 0; i < NUM_VALUES; i++) {
+  for (i = 0; i < URKEL_ITERATIONS; i++) {
     unsigned char *key = kvs[i].key;
 
     if (i & 1) {
@@ -172,7 +143,7 @@ main(void) {
       ASSERT(!urkel_tx_has(tx, key));
     }
 
-    if (i == NUM_VALUES / 2)
+    if (i == URKEL_ITERATIONS / 2)
       ASSERT(urkel_tx_commit(tx));
   }
 
@@ -193,7 +164,7 @@ main(void) {
       i += 2;
     }
 
-    ASSERT(i == NUM_VALUES);
+    ASSERT(i == URKEL_ITERATIONS);
 
     urkel_iter_destroy(iter);
   }
@@ -237,7 +208,7 @@ main(void) {
       i += 2;
     }
 
-    ASSERT(i == NUM_VALUES);
+    ASSERT(i == URKEL_ITERATIONS);
 
     urkel_iter_destroy(iter);
   }
@@ -263,7 +234,7 @@ main(void) {
       i += 1;
     }
 
-    ASSERT(i == NUM_VALUES);
+    ASSERT(i == URKEL_ITERATIONS);
 
     urkel_iter_destroy(iter);
   }
@@ -271,11 +242,9 @@ main(void) {
   urkel_tx_destroy(tx);
   urkel_close(db);
 
-  ASSERT(urkel_destroy(DB_PATH));
+  ASSERT(urkel_destroy(URKEL_PATH));
 
-  free(kvs);
-
-  printf("Success.\n");
+  urkel_kv_free(kvs);
 
   return 0;
 }

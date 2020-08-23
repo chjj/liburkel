@@ -141,7 +141,7 @@ check_c_thread_local_storage(URKEL_TLS)
 set(urkel_defines)
 
 if(WIN32 AND NOT URKEL_WASM)
-  list(APPEND urkel_defines _WIN32_WINNT=0x0600)
+  list(APPEND urkel_defines _WIN32_WINNT=0x0501)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT URKEL_WASM)
@@ -178,8 +178,8 @@ set(urkel_sources src/bits.c
 
 set(urkel_includes ${PROJECT_SOURCE_DIR}/include)
 
-set(test_sources test/test.c)
-set(bench_sources test/bench.c test/hrtime.c)
+set(test_sources test/test.c test/utils.c)
+set(bench_sources test/bench.c test/hrtime.c test/utils.c)
 
 if(URKEL_WASM)
   if(URKEL_EMSCRIPTEN)

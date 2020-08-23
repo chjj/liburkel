@@ -9,28 +9,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
 #include <urkel.h>
 
 #include "hrtime.h"
 #include "utils.h"
 
-#ifdef __wasi__
-#  define DB_PATH "/urkel_db_test"
-#else
-#  define DB_PATH "./urkel_db_test"
-#endif
-
-#define NUM_VALUES 100000
-
-/*
- * Structs
- */
-
-typedef struct urkel_kv_s {
-  unsigned char key[32];
-  unsigned char value[64];
-} urkel_kv_t;
+#define URKEL_ITERATIONS 100000
 
 /*
  * Benchmarks
@@ -58,36 +42,25 @@ bench_end(bench_t *start, uint64_t ops) {
 
 static void
 bench_urkel(void) {
-  urkel_kv_t *kvs;
+  urkel_kv_t *kvs = urkel_kv_generate(URKEL_ITERATIONS);
   urkel_tx_t *tx;
   urkel_t *db;
   bench_t tv;
   size_t i;
 
-  urkel_destroy(DB_PATH);
+  urkel_destroy(URKEL_PATH);
 
-  db = urkel_open(DB_PATH);
-  kvs = malloc(NUM_VALUES * sizeof(urkel_kv_t));
+  db = urkel_open(URKEL_PATH);
 
   ASSERT(db != NULL);
-  ASSERT(kvs != NULL);
 
   tx = urkel_tx_create(db, NULL);
 
   ASSERT(tx != NULL);
 
-  for (i = 0; i < NUM_VALUES; i++) {
-    unsigned char *key = kvs[i].key;
-    unsigned char *value = kvs[i].value;
-
-    urkel_hash(key, &i, sizeof(i));
-    urkel_hash(value + 0, key, 32);
-    urkel_hash(value + 32, value, 32);
-  }
-
   bench_start(&tv, "insert");
 
-  for (i = 0; i < NUM_VALUES; i++) {
+  for (i = 0; i < URKEL_ITERATIONS; i++) {
     unsigned char *key = kvs[i].key;
     unsigned char *value = kvs[i].value;
 
@@ -98,7 +71,7 @@ bench_urkel(void) {
 
   bench_start(&tv, "get (cached)");
 
-  for (i = 0; i < NUM_VALUES; i++) {
+  for (i = 0; i < URKEL_ITERATIONS; i++) {
     unsigned char *key = kvs[i].key;
     unsigned char value[64];
     size_t size;
@@ -117,7 +90,7 @@ bench_urkel(void) {
   urkel_tx_destroy(tx);
   urkel_close(db);
 
-  db = urkel_open(DB_PATH);
+  db = urkel_open(URKEL_PATH);
 
   ASSERT(db != NULL);
 
@@ -127,7 +100,7 @@ bench_urkel(void) {
 
   bench_start(&tv, "get (uncached)");
 
-  for (i = 0; i < NUM_VALUES; i++) {
+  for (i = 0; i < URKEL_ITERATIONS; i++) {
     unsigned char *key = kvs[i].key;
     unsigned char value[64];
     size_t size;
@@ -139,7 +112,7 @@ bench_urkel(void) {
 
   bench_start(&tv, "remove");
 
-  for (i = 0; i < NUM_VALUES; i++) {
+  for (i = 0; i < URKEL_ITERATIONS; i++) {
     unsigned char *key = kvs[i].key;
 
     if (i & 1)
@@ -163,7 +136,7 @@ bench_urkel(void) {
   urkel_tx_destroy(tx);
   urkel_close(db);
 
-  db = urkel_open(DB_PATH);
+  db = urkel_open(URKEL_PATH);
 
   ASSERT(db != NULL);
 
@@ -183,7 +156,7 @@ bench_urkel(void) {
 
     bench_start(&tv, "prove");
 
-    for (i = 0; i < NUM_VALUES; i++) {
+    for (i = 0; i < URKEL_ITERATIONS; i++) {
       ASSERT(urkel_tx_prove(tx, &proof_raw, &proof_len, key));
 
       free(proof_raw);
@@ -195,7 +168,7 @@ bench_urkel(void) {
 
     bench_start(&tv, "verify");
 
-    for (i = 0; i < NUM_VALUES; i++) {
+    for (i = 0; i < URKEL_ITERATIONS; i++) {
       ASSERT(urkel_verify(&value, &value_len, proof_raw, proof_len, root, key));
       ASSERT(value_len == 64);
       ASSERT(memcmp(value, kvs[0].value, 64) == 0);
@@ -211,9 +184,9 @@ bench_urkel(void) {
   urkel_tx_destroy(tx);
   urkel_close(db);
 
-  ASSERT(urkel_destroy(DB_PATH));
+  ASSERT(urkel_destroy(URKEL_PATH));
 
-  free(kvs);
+  urkel_kv_free(kvs);
 }
 
 int
