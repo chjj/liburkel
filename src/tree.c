@@ -808,12 +808,16 @@ urkel_iterate(tree_db_t *tree) {
 tree_tx_t *
 urkel_tx_create(tree_db_t *tree, const unsigned char *hash) {
   tree_tx_t *tx = checked_malloc(sizeof(tree_tx_t));
+  int write_lock = (hash != NULL || tree->revert);
 
-  urkel_rwlock_rdlock(tree->lock);
+  if (write_lock)
+    urkel_rwlock_wrlock(tree->lock);
+  else
+    urkel_rwlock_rdlock(tree->lock);
 
   tx->tree = tree;
 
-  if (hash)
+  if (hash != NULL)
     tx->root = urkel_store_get_history(tree->store, hash);
   else if (tree->revert)
     tx->root = urkel_store_get_history(tree->store, tree->hash);
@@ -826,7 +830,10 @@ urkel_tx_create(tree_db_t *tree, const unsigned char *hash) {
     tx = NULL;
   }
 
-  urkel_rwlock_rdunlock(tree->lock);
+  if (write_lock)
+    urkel_rwlock_wrunlock(tree->lock);
+  else
+    urkel_rwlock_rdunlock(tree->lock);
 
   return tx;
 }
