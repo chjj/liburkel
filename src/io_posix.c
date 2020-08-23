@@ -60,19 +60,11 @@
 #  define HAVE_PTHREAD
 #endif
 
-#ifdef __wasi__
-/* lseek(3) is statement expression in wasi-libc. */
-#  pragma GCC diagnostic ignored "-Wgnu-statement-expression"
-#endif
-
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
 #include <sys/mman.h>
-#endif
-#ifdef __wasi__
-#include <sys/random.h>
 #endif
 
 #include <dirent.h>
@@ -87,6 +79,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef __wasi__
+/* lseek(3) is statement expression in wasi-libc. */
+#  pragma GCC diagnostic ignored "-Wgnu-statement-expression"
+/* We need direct access to some WASI calls. */
+#  include <wasi/api.h>
+#endif
+
+#ifdef __EMSCRIPTEN__
+/* Necessary for our RNG. See urkel_sys_random. */
+#  include <uuid/uuid.h> /* uuid_generate */
+#endif
 
 #include "io.h"
 
@@ -585,14 +589,147 @@ urkel__dirent_compare(const void *x, const void *y) {
 
 int
 urkel_fs_scandir(const char *name, urkel_dirent_t ***out, size_t *count) {
+#if defined(__wasi__)
+  /* This absolutely insane hack is to workaround the fact that
+  * uvwasi is broken in node.js[1][2]. uvwasi mistakenly copies
+  * a pointer to the dirent name string instead of the string
+  * itself. Not only does this cause the node.js process to enter
+  * an unpredictable state and leak potentially sensitive data,
+  * it also means that it's impossible to actually get the dirent
+  * names.
+  *
+  * To get around this we ask uvwasi for the dirents only and we
+  * infer the filenames in our database directory based on their
+  * lengths. This avoids any kind of segfault and gives us a way
+  * to use liburkel in WASI right now.
+  *
+  * [1] https://github.com/cjihrig/uvwasi/blob/d3fe61d/src/uvwasi.c#L1392
+  * [2] https://github.com/cjihrig/uvwasi/issues/148
+  */
+  urkel_dirent_t **list = NULL;
+  urkel_dirent_t *item = NULL;
+  __wasi_dirent_t entry;
+  __wasi_fd_t fd = -1;
+  unsigned char *buf = (unsigned char *)&entry;
+  __wasi_size_t buflen = sizeof(entry);
+  __wasi_dircookie_t cookie = 0;
+  __wasi_size_t bufused = 0;
+  uint32_t name_index = 1;
+  size_t size = 8;
+  int has_meta = 0;
+  int has_lock = 0;
+  size_t i = 0;
+  size_t j;
+
+  list = malloc(size * sizeof(urkel_dirent_t *));
+
+  if (list == NULL)
+    goto fail;
+
+  fd = open(name, O_RDONLY);
+
+  if (fd == -1)
+    goto fail;
+
+  for (;;) {
+    if (__wasi_fd_readdir(fd, buf, buflen, cookie, &bufused) != 0)
+      goto fail;
+
+    if (bufused != sizeof(entry))
+      break;
+
+    item = malloc(sizeof(urkel_dirent_t));
+
+    if (item == NULL)
+      goto fail;
+
+    if (i == size - 1) {
+      size = (size * 3) / 2;
+      list = realloc(list, size * sizeof(urkel_dirent_t *));
+
+      if (list == NULL)
+        goto fail;
+    }
+
+    item->d_ino = entry.d_ino;
+
+    switch (entry.d_namlen) {
+      case 4: {
+        if (!has_meta) {
+          memcpy(item->d_name, "meta", 5);
+          has_meta = 1;
+        } else if (!has_lock) {
+          memcpy(item->d_name, "lock", 5);
+          has_lock = 1;
+        } else {
+          free(item);
+          goto next;
+        }
+
+        break;
+      }
+
+      case 10: {
+        uint32_t num = name_index++;
+        size_t k = 10;
+
+        item->d_name[k] = '\0';
+
+        while (k--) {
+          item->d_name[k] = '0' + (num % 10);
+          num /= 10;
+        }
+
+        break;
+      }
+
+      default: {
+        free(item);
+        goto next;
+      }
+    }
+
+    list[i++] = item;
+next:
+    item = NULL;
+    cookie = entry.d_next;
+  }
+
+  list[i] = NULL;
+
+  close(fd);
+
+  qsort(list, i, sizeof(urkel_dirent_t *), urkel__dirent_compare);
+
+  *out = list;
+  *count = i;
+
+  return 1;
+fail:
+  for (j = 0; j < i; j++)
+    free(list[j]);
+
+  if (list != NULL)
+    free(list);
+
+  if (item != NULL)
+    free(item);
+
+  if (fd != -1)
+    close(fd);
+
+  *out = NULL;
+  *count = 0;
+
+  return 0;
+#else
   urkel_dirent_t **list = NULL;
   urkel_dirent_t *item = NULL;
   struct dirent *entry;
   size_t size = 8;
   DIR *dir = NULL;
   size_t i = 0;
-  size_t len;
-  size_t j;
+  size_t j, len;
 
   list = malloc(size * sizeof(urkel_dirent_t *));
 
@@ -668,6 +805,7 @@ fail:
   *count = 0;
 
   return 0;
+#endif
 }
 
 int
@@ -1096,7 +1234,34 @@ urkel_path_resolve(const char *path) {
 int
 urkel_sys_random(void *dst, size_t size) {
 #if defined(__wasi__)
-  return getentropy(dst, size) == 0;
+  return __wasi_random_get((uint8_t *)dst, size) == 0;
+#elif defined(__EMSCRIPTEN__)
+  /* Abuse emscripten's UUID generator[1] to get
+   * direct access to the node.js RNG. This is
+   * avoids us having to access a device which
+   * may not exist. Furthermore, this actually
+   * works on windows.
+   *
+   * [1] https://github.com/emscripten-core/emscripten/commit/385a660
+   */
+  unsigned char *data = dst;
+  unsigned char uuid[16];
+  size_t max = 14;
+
+  while (size > 0) {
+    if (max > size)
+      max = size;
+
+    uuid_generate(uuid);
+
+    uuid[6] = uuid[14];
+    uuid[8] = uuid[15];
+
+    data += max;
+    size -= max;
+  }
+
+  return 1;
 #else
   int ret;
 #if defined(__redox__)
