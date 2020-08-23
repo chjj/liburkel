@@ -765,8 +765,10 @@ urkel_verify(unsigned char **value,
   urkel_proof_t proof;
   int ret;
 
-  if (!urkel_proof_read(&proof, proof_raw, proof_len))
+  if (!urkel_proof_read(&proof, proof_raw, proof_len)) {
+    urkel_errno = URKEL_EUNKNOWN;
     return 0;
+  }
 
   ret = urkel_proof_verify(&proof, root, key);
 
