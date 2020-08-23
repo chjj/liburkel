@@ -4,10 +4,6 @@
  * https://github.com/handshake-org/liburkel
  */
 
-#undef HAVE_FLOCK
-#undef HAVE_MMAP
-#undef HAVE_PTHREAD
-
 #if defined(__ANDROID__)
 #  undef _GNU_SOURCE
 #  define _GNU_SOURCE
@@ -27,34 +23,51 @@
 #  undef _POSIX_C_SOURCE
 #  define _GNU_SOURCE
 #  define _POSIX_C_SOURCE 200112
-#  define HAVE_FLOCK
-#  define HAVE_MMAP
 #elif defined(_AIX) || defined(__OS400__)
 #  undef _ALL_SOURCE
+#  undef _XOPEN_SOURCE
 #  undef _LINUX_SOURCE_COMPAT
 #  undef _THREAD_SAFE
-#  undef _XOPEN_SOURCE
 #  define _ALL_SOURCE
+#  define _XOPEN_SOURCE 500
 #  define _LINUX_SOURCE_COMPAT
 #  define _THREAD_SAFE
-#  define _XOPEN_SOURCE 500
 #elif defined(__sun)
 #  undef __EXTENSIONS__
 #  undef _XOPEN_SOURCE
+#  undef _REENTRANT
 #  define __EXTENSIONS__
 #  define _XOPEN_SOURCE 500
+#  define _REENTRANT
+#elif defined(__OS390__)
+#  undef _UNIX03_THREADS
+#  undef _UNIX03_SOURCE
+#  undef _XOPEN_SOURCE_EXTENDED
+#  undef _ALL_SOURCE
+#  undef _LARGE_TIME_API
+#  define _UNIX03_THREADS
+#  define _UNIX03_SOURCE
+#  define _XOPEN_SOURCE_EXTENDED
+#  define _ALL_SOURCE
+#  define _LARGE_TIME_API
 #endif
 
+#undef HAVE_MMAP
+#undef HAVE_PTHREAD
+
 #if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
+#  define HAVE_MMAP
 #  define HAVE_PTHREAD
+#endif
+
+#ifdef __wasi__
+/* lseek(3) is statement expression in wasi-libc. */
+#  pragma GCC diagnostic ignored "-Wgnu-statement-expression"
 #endif
 
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#ifdef HAVE_FLOCK
-#include <sys/file.h>
-#endif
 #ifdef HAVE_MMAP
 #include <sys/mman.h>
 #endif
@@ -671,10 +684,6 @@ urkel_fs_fstat(int fd, urkel_stat_t *out) {
   return 0;
 }
 
-#ifdef __wasi__
-#  pragma GCC diagnostic ignored "-Wgnu-statement-expression"
-#endif
-
 int64_t
 urkel_fs_seek(int fd, int64_t pos, int whence) {
   int w = 0;
@@ -847,25 +856,7 @@ urkel_fs_fdatasync(int fd) {
 
 int
 urkel_fs_flock(int fd, int operation) {
-#if defined(HAVE_FLOCK)
-  int op;
-
-  switch (operation) {
-    case URKEL_LOCK_SH:
-      op = LOCK_SH;
-      break;
-    case URKEL_LOCK_EX:
-      op = LOCK_EX;
-      break;
-    case URKEL_LOCK_UN:
-      op = LOCK_UN;
-      break;
-    default:
-      return 0;
-  }
-
-  return flock(fd, op) == 0;
-#elif defined(F_SETLK)
+#if defined(F_SETLK)
   struct flock fl;
   int type;
 
@@ -889,7 +880,6 @@ urkel_fs_flock(int fd, int operation) {
   fl.l_whence = SEEK_SET;
   fl.l_start = 0;
   fl.l_len = 0;
-  fl.l_pid = 0;
 
   return fcntl(fd, F_SETLK, &fl) == 0;
 #else
@@ -1002,11 +992,11 @@ urkel_file_close(urkel_file_t *file) {
 
 #ifdef HAVE_MMAP
   if (file->base != NULL)
-    ret &= munmap(file->base, file->size) == 0;
+    ret &= (munmap(file->base, file->size) == 0);
 #endif
 
   if (file->fd != -1)
-    ret &= close(file->fd) == 0;
+    ret &= (close(file->fd) == 0);
 
   free(file);
 
