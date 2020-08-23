@@ -32,6 +32,7 @@ urkel_kv_compare(const void *x, const void *y) {
 
 int
 main(void) {
+  unsigned char old_root[32];
   urkel_kv_t *kvs;
   urkel_tx_t *tx;
   urkel_t *db;
@@ -160,6 +161,8 @@ main(void) {
     free(value);
   }
 
+  urkel_root(db, old_root);
+
   for (i = 0; i < NUM_VALUES; i++) {
     unsigned char *key = kvs[i].key;
 
@@ -232,6 +235,32 @@ main(void) {
       ASSERT(memcmp(key, kvs[i].key, 32) == 0);
       ASSERT(memcmp(value, kvs[i].value, 64) == 0);
       i += 2;
+    }
+
+    ASSERT(i == NUM_VALUES);
+
+    urkel_iter_destroy(iter);
+  }
+
+  urkel_tx_destroy(tx);
+
+  tx = urkel_tx_create(db, old_root);
+
+  {
+    urkel_iter_t *iter = urkel_iter_create(tx);
+    unsigned char key[32];
+    unsigned char value[64];
+    size_t len;
+
+    ASSERT(iter != NULL);
+
+    i = 0;
+
+    while (urkel_iter_next(iter, key, value, &len)) {
+      ASSERT(len == 64);
+      ASSERT(memcmp(key, kvs[i].key, 32) == 0);
+      ASSERT(memcmp(value, kvs[i].value, 64) == 0);
+      i += 1;
     }
 
     ASSERT(i == NUM_VALUES);
