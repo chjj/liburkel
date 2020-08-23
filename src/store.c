@@ -448,7 +448,7 @@ urkel_store_read(data_store_t *store,
 
 static int
 urkel_store_sync(data_store_t *store) {
-  return urkel_fs_fdatasync(store->current->fd);
+  return urkel_file_datasync(store->current);
 }
 
 static int

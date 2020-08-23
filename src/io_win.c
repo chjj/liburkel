@@ -767,6 +767,16 @@ urkel_file_write(urkel_file_t *file, const void *src, size_t len) {
 }
 
 int
+urkel_file_sync(const urkel_file_t *file) {
+  return urkel_fs_fsync(file->fd);
+}
+
+int
+urkel_file_datasync(const urkel_file_t *file) {
+  return urkel_fs_fdatasync(file->fd);
+}
+
+int
 urkel_file_close(urkel_file_t *file) {
   HANDLE mapping;
   int ret = 1;

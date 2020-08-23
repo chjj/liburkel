@@ -223,6 +223,12 @@ int
 urkel_file_write(urkel_file_t *file, const void *src, size_t len);
 
 int
+urkel_file_sync(const urkel_file_t *file);
+
+int
+urkel_file_datasync(const urkel_file_t *file);
+
+int
 urkel_file_close(urkel_file_t *file);
 
 /*
