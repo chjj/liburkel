@@ -169,6 +169,8 @@ urkel_bits_read(urkel_bits_t *bits, const unsigned char *data, size_t len) {
   if (len < bytes)
     return 0;
 
+  bits->size = size;
+
   memcpy(bits->data, data, bytes);
 
   return 1;
