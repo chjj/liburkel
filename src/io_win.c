@@ -16,10 +16,6 @@
 
 #include <windows.h>
 #include <io.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,65 +66,8 @@ typedef struct urkel_rwlock_s {
  * Filesystem
  */
 
-static int
-urkel_fs__flags_api_to_os(int flags) {
-  int out = 0;
-
-#ifdef _O_RDONLY
-  if (flags & URKEL_O_RDONLY)
-    out |= _O_RDONLY;
-#endif
-
-#ifdef _O_WRONLY
-  if (flags & URKEL_O_WRONLY)
-    out |= _O_WRONLY;
-#endif
-
-#ifdef _O_RDWR
-  if (flags & URKEL_O_RDWR)
-    out |= _O_RDWR;
-#endif
-
-#ifdef _O_APPEND
-  if (flags & URKEL_O_APPEND)
-    out |= _O_APPEND;
-#endif
-
-#ifdef _O_CREAT
-  if (flags & URKEL_O_CREAT)
-    out |= _O_CREAT;
-#endif
-
-#ifdef _O_EXCL
-  if (flags & URKEL_O_EXCL)
-    out |= _O_EXCL;
-#endif
-
-#ifdef _O_TRUNC
-  if (flags & URKEL_O_TRUNC)
-    out |= _O_TRUNC;
-#endif
-
-#ifdef _O_SEQUENTIAL
-  if (flags & URKEL_O_SEQUENTIAL)
-    out |= _O_SEQUENTIAL;
-#endif
-
-#ifdef _O_RANDOM
-  if (flags & URKEL_O_RANDOM)
-    out |= _O_RANDOM;
-#endif
-
-#ifdef _O_NOINHERIT
-  out |= _O_NOINHERIT; /* O_CLOEXEC */
-#endif
-
-  return out;
-}
-
 int
 urkel_fs_open(const char *name, int flags, uint32_t mode) {
-  int wflags = urkel_fs__flags_api_to_os(flags);
   DWORD access;
   DWORD share;
   DWORD disposition;
@@ -222,7 +161,7 @@ urkel_fs_open(const char *name, int flags, uint32_t mode) {
   if (handle == INVALID_HANDLE_VALUE)
     return -1;
 
-  fd = _open_osfhandle((intptr_t)handle, wflags);
+  fd = _open_osfhandle((intptr_t)handle, 0);
 
   if (fd < 0) {
     CloseHandle(handle);
