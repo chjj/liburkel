@@ -670,6 +670,126 @@ urkel_fs_close(int fd) {
 }
 
 /*
+ * File
+ */
+
+urkel_file_t *
+urkel_file_open(const char *name, int flags, uint32_t mode) {
+  urkel_file_t *file;
+  HANDLE handle, mapping;
+  LARGE_INTEGER len;
+  int should_mmap = 0;
+  int fd = -1;
+  void *base;
+
+  if (flags & URKEL_O_MMAP) {
+    if (!(flags & URKEL_O_RDONLY))
+      return NULL;
+  }
+
+  fd = urkel_fs_open(name, flags, mode);
+
+  if (fd == -1)
+    return NULL;
+
+  handle = (HANDLE)_get_osfhandle(fd);
+
+  if (handle == INVALID_HANDLE_VALUE)
+    return NULL;
+
+  if (!GetFileSizeEx(handle, &len)) {
+    _close(fd);
+    return NULL;
+  }
+
+  file = malloc(sizeof(urkel_file_t));
+
+  if (file == NULL) {
+    _close(fd);
+    return NULL;
+  }
+
+  if (sizeof(HANDLE) > sizeof(file->_storage)) {
+    abort();
+    return NULL;
+  }
+
+  file->fd = fd;
+  file->index = 0;
+  file->size = len.QuadPart;
+  file->base = NULL;
+
+  memset(file->_storage, 0, sizeof(file->_storage));
+
+  if ((flags & URKEL_O_MMAP) && sizeof(void *) >= 8)
+    should_mmap = (file->size >= 1 && file->size <= 0x7ffff000);
+
+  if (should_mmap) {
+    mapping = CreateFileMappingA(handle, NULL, PAGE_READONLY, 0, 0, NULL);
+
+    if (mapping != INVALID_HANDLE_VALUE) {
+      base = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
+
+      if (base != NULL) {
+        file->base = base;
+        memcpy(file->_storage, &mapping, sizeof(HANDLE));
+      } else {
+        CloseHandle(mapping);
+      }
+    }
+  }
+
+  return file;
+}
+
+int
+urkel_file_pread(const urkel_file_t *file,
+                 void *dst, size_t len, uint64_t pos) {
+  if (pos + len < pos)
+    return 0;
+
+  if (pos + len > file->size)
+    return 0;
+
+  if (file->base != NULL) {
+    memcpy(dst, (const unsigned char *)file->base + pos, len);
+    return 1;
+  }
+
+  return urkel_fs_pread(file->fd, dst, len, pos);
+}
+
+int
+urkel_file_write(urkel_file_t *file, const void *src, size_t len) {
+  if (!urkel_fs_write(file->fd, src, len))
+    return 0;
+
+  file->size += len;
+
+  return 1;
+}
+
+int
+urkel_file_close(urkel_file_t *file) {
+  HANDLE mapping;
+  int ret = 1;
+
+  memcpy(&mapping, file->_storage, sizeof(HANDLE));
+
+  if (file->base != NULL) {
+    ret &= UnmapViewOfFile(file->base) == TRUE;
+    ret &= CloseHandle(mapping) == TRUE;
+  }
+
+  if (file->fd != -1)
+    ret &= _close(file->fd) != -1;
+
+  free(file);
+
+  return ret;
+}
+
+/*
  * Process
  */
 

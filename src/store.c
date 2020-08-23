@@ -30,7 +30,7 @@
 #define SLAB_SIZE (READ_BUFFER - (READ_BUFFER % META_SIZE))
 #define KEY_SIZE 32
 #define WRITE_FLAGS (URKEL_O_RDWR | URKEL_O_CREAT | URKEL_O_APPEND | URKEL_O_RANDOM)
-#define READ_FLAGS (URKEL_O_RDONLY | URKEL_O_RANDOM)
+#define READ_FLAGS (URKEL_O_RDONLY | URKEL_O_RANDOM | URKEL_O_MMAP)
 #define CACHE_HASH(k) urkel_murmur3(k, URKEL_HASH_SIZE, 0)
 #define CHACHE_EQUAL(a, b) (memcmp(a, b, URKEL_HASH_SIZE) == 0)
 
@@ -55,12 +55,6 @@ typedef struct urkel_slab_s {
   uint64_t file_pos; /* Current file position. */
   uint32_t file_index; /* Current file index. */
 } urkel_slab_t;
-
-typedef struct urkel_file_s {
-  int fd;
-  uint32_t index;
-  uint64_t size;
-} urkel_file_t;
 
 typedef struct urkel_filemap_s {
   urkel_file_t **items;
@@ -93,7 +87,7 @@ typedef struct urkel_store_s {
  * Constants
  */
 
-static urkel_file_t urkel_null_file = {-1, 0, 0};
+static urkel_file_t urkel_null_file = {-1, 0, 0, NULL, {0}};
 
 /*
  * Meta Root
@@ -211,10 +205,8 @@ urkel_filemap_uninit(urkel_filemap_t *fm) {
     for (i = 0; i < fm->len; i++) {
       urkel_file_t *file = fm->items[i];
 
-      if (file != NULL) {
-        urkel_fs_close(file->fd);
-        free(file);
-      }
+      if (file != NULL)
+        urkel_file_close(file);
     }
 
     free(fm->items);
@@ -400,8 +392,6 @@ static urkel_file_t *
 urkel_store_open_file(data_store_t *store, uint32_t index, int flags) {
   char path[URKEL_PATH_MAX + 1];
   urkel_file_t *file;
-  urkel_stat_t st;
-  int fd;
 
   if (index == 0 || index > store->index + 1)
     return NULL;
@@ -413,20 +403,12 @@ urkel_store_open_file(data_store_t *store, uint32_t index, int flags) {
 
   urkel_store_path_index(store, path, index);
 
-  fd = urkel_fs_open(path, flags, 0640);
+  file = urkel_file_open(path, flags, 0640);
 
-  if (fd == -1)
+  if (file == NULL)
     return NULL;
 
-  if (!urkel_fs_fstat(fd, &st)) {
-    urkel_fs_close(fd);
-    return NULL;
-  }
-
-  file = checked_malloc(sizeof(urkel_file_t));
-  file->fd = fd;
   file->index = index;
-  file->size = st.st_size;
 
   if (store->files.size >= MAX_OPEN_FILES)
     urkel_store_evict(store);
@@ -446,9 +428,7 @@ urkel_store_close_file(data_store_t *store, uint32_t index) {
       store->index = 0;
     }
 
-    urkel_fs_close(file->fd);
-
-    free(file);
+    urkel_file_close(file);
   }
 }
 
@@ -463,7 +443,7 @@ urkel_store_read(data_store_t *store,
   if (file == NULL)
     return 0;
 
-  return urkel_fs_pread(file->fd, out, size, pos);
+  return urkel_file_pread(file, out, size, pos);
 }
 
 static int
@@ -492,12 +472,7 @@ urkel_store_write(data_store_t *store,
     store->index = file->index;
   }
 
-  if (!urkel_fs_write(store->current->fd, data, size))
-    return 0;
-
-  store->current->size += size;
-
-  return 1;
+  return urkel_file_write(store->current, data, size);
 }
 
 static int

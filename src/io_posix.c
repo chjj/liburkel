@@ -5,6 +5,7 @@
  */
 
 #undef HAVE_FLOCK
+#undef HAVE_MMAP
 #undef HAVE_PTHREAD
 
 #if defined(__ANDROID__)
@@ -27,6 +28,7 @@
 #  define _GNU_SOURCE
 #  define _POSIX_C_SOURCE 200112
 #  define HAVE_FLOCK
+#  define HAVE_MMAP
 #elif defined(_AIX) || defined(__OS400__)
 #  undef _ALL_SOURCE
 #  undef _LINUX_SOURCE_COMPAT
@@ -52,6 +54,9 @@
 #include <sys/stat.h>
 #ifdef HAVE_FLOCK
 #include <sys/file.h>
+#endif
+#ifdef HAVE_MMAP
+#include <sys/mman.h>
 #endif
 #ifdef __wasi__
 #include <sys/random.h>
@@ -897,6 +902,115 @@ urkel_fs_flock(int fd, int operation) {
 int
 urkel_fs_close(int fd) {
   return close(fd) == 0;
+}
+
+/*
+ * File
+ */
+
+urkel_file_t *
+urkel_file_open(const char *name, int flags, uint32_t mode) {
+  urkel_file_t *file;
+  struct stat st;
+  int fd;
+#ifdef HAVE_MMAP
+  int should_mmap = 0;
+  void *base;
+#endif
+
+  if (flags & URKEL_O_MMAP) {
+    if (!(flags & URKEL_O_RDONLY))
+      return NULL;
+  }
+
+  fd = urkel_fs_open(name, flags, mode);
+
+  if (fd == -1)
+    return NULL;
+
+  if (fstat(fd, &st) != 0) {
+    close(fd);
+    return NULL;
+  }
+
+  file = malloc(sizeof(urkel_file_t));
+
+  if (file == NULL) {
+    close(fd);
+    return NULL;
+  }
+
+  file->fd = fd;
+  file->index = 0;
+  file->size = st.st_size;
+  file->base = NULL;
+
+#ifdef HAVE_MMAP
+  if ((flags & URKEL_O_MMAP) && sizeof(void *) >= 8)
+    should_mmap = (file->size >= 1 && file->size <= 0x7ffff000);
+
+  if (should_mmap) {
+    base = mmap(NULL, file->size, PROT_READ, MAP_SHARED, fd, 0);
+
+#if defined(MAP_FAILED)
+    if (base != MAP_FAILED) {
+#else
+    if (base != (void *)-1) {
+#endif
+      file->fd = -1;
+      file->base = base;
+      close(fd);
+    }
+  }
+#endif
+
+  return file;
+}
+
+int
+urkel_file_pread(const urkel_file_t *file,
+                 void *dst, size_t len, uint64_t pos) {
+  if (pos + len < pos)
+    return 0;
+
+  if (pos + len > file->size)
+    return 0;
+
+#ifdef HAVE_MMAP
+  if (file->base != NULL) {
+    memcpy(dst, (const unsigned char *)file->base + pos, len);
+    return 1;
+  }
+#endif
+
+  return urkel_fs_pread(file->fd, dst, len, pos);
+}
+
+int
+urkel_file_write(urkel_file_t *file, const void *src, size_t len) {
+  if (!urkel_fs_write(file->fd, src, len))
+    return 0;
+
+  file->size += len;
+
+  return 1;
+}
+
+int
+urkel_file_close(urkel_file_t *file) {
+  int ret = 1;
+
+#ifdef HAVE_MMAP
+  if (file->base != NULL)
+    ret &= munmap(file->base, file->size) == 0;
+#endif
+
+  if (file->fd != -1)
+    ret &= close(file->fd) == 0;
+
+  free(file);
+
+  return ret;
 }
 
 /*

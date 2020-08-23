@@ -29,6 +29,7 @@
 #define URKEL_O_EXLOCK     (1 << 12)
 #define URKEL_O_SEQUENTIAL (1 << 13)
 #define URKEL_O_RANDOM     (1 << 14)
+#define URKEL_O_MMAP       (1 << 15)
 
 #define URKEL_S_IFMT   00170000
 #define URKEL_S_IFBLK  0060000
@@ -121,6 +122,14 @@ typedef struct urkel_dirent_s {
   char d_name[256];
 } urkel_dirent_t;
 
+typedef struct urkel_file_s {
+  int fd;
+  uint32_t index;
+  uint64_t size;
+  void *base;
+  char _storage[32];
+} urkel_file_t;
+
 struct urkel_mutex_s;
 struct urkel_rwlock_s;
 
@@ -199,6 +208,22 @@ urkel_fs_flock(int fd, int operation);
 
 int
 urkel_fs_close(int fd);
+
+/*
+ * File
+ */
+
+urkel_file_t *
+urkel_file_open(const char *name, int flags, uint32_t mode);
+
+int
+urkel_file_pread(const urkel_file_t *file, void *dst, size_t len, uint64_t pos);
+
+int
+urkel_file_write(urkel_file_t *file, const void *src, size_t len);
+
+int
+urkel_file_close(urkel_file_t *file);
 
 /*
  * Process
