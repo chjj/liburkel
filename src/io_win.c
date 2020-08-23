@@ -126,53 +126,6 @@ urkel_fs__flags_api_to_os(int flags) {
   return out;
 }
 
-static uint32_t
-urkel_fs__mode_api_to_os(uint32_t mode) {
-  uint32_t out = 0;
-
-#ifdef _S_IFBLK
-  if (mode & URKEL_S_IFBLK)
-    out |= _S_IFBLK;
-#endif
-
-#ifdef _S_IFCHR
-  if (mode & URKEL_S_IFCHR)
-    out |= _S_IFCHR;
-#endif
-
-#ifdef _S_IFIFO
-  if (mode & URKEL_S_IFIFO)
-    out |= _S_IFIFO;
-#endif
-
-#ifdef _S_IFREG
-  if (mode & URKEL_S_IFREG)
-    out |= _S_IFREG;
-#endif
-
-#ifdef _S_IFDIR
-  if (mode & URKEL_S_IFDIR)
-    out |= _S_IFDIR;
-#endif
-
-#ifdef _S_IREAD
-  if (mode & URKEL_S_IRUSR)
-    out |= _S_IREAD;
-#endif
-
-#ifdef _S_IWRITE
-  if (mode & URKEL_S_IWUSR)
-    out |= _S_IWRITE;
-#endif
-
-#ifdef _S_IEXEC
-  if (mode & URKEL_S_IXUSR)
-    out |= _S_IEXEC;
-#endif
-
-  return out;
-}
-
 int
 urkel_fs_open(const char *name, int flags, uint32_t mode) {
   int wflags = urkel_fs__flags_api_to_os(flags);
@@ -372,7 +325,15 @@ urkel_fs_exists(const char *name) {
 
 int
 urkel_fs_chmod(const char *name, uint32_t mode) {
-  return _chmod(name, urkel_fs__mode_api_to_os(mode)) != -1;
+  DWORD attributes = GetFileAttributesA(name);
+
+  if (attributes == INVALID_FILE_ATTRIBUTES)
+    return 0;
+
+  if (!(mode & URKEL_S_IWUSR))
+    attributes |= FILE_ATTRIBUTE_READONLY;
+
+  return SetFileAttributesA(name, attributes);
 }
 
 int
