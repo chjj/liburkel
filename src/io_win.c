@@ -72,6 +72,11 @@ urkel_fs_open(const char *name, int flags, uint32_t mode) {
   HANDLE handle;
   int fd;
 
+  if (flags & URKEL_O_MMAP) {
+    if (flags & URKEL_O_WRONLY)
+      flags = (flags & ~URKEL_O_WRONLY) | URKEL_O_RDWR;
+  }
+
   switch (flags & (URKEL_O_RDONLY | URKEL_O_WRONLY | URKEL_O_RDWR)) {
     case URKEL_O_RDONLY:
       access = FILE_GENERIC_READ;
@@ -673,16 +678,9 @@ urkel_fs_close(int fd) {
 urkel_file_t *
 urkel_file_open(const char *name, int flags, uint32_t mode) {
   urkel_file_t *file;
-  HANDLE handle, mapping;
+  HANDLE handle;
   LARGE_INTEGER len;
-  int should_mmap = 0;
-  int fd = -1;
-  void *base;
-
-  if (flags & URKEL_O_MMAP) {
-    if (!(flags & URKEL_O_RDONLY))
-      return NULL;
-  }
+  int fd;
 
   fd = urkel_fs_open(name, flags, mode);
 
@@ -706,34 +704,43 @@ urkel_file_open(const char *name, int flags, uint32_t mode) {
     return NULL;
   }
 
-  if (sizeof(HANDLE) > sizeof(file->_storage)) {
+  if (sizeof(HANDLE) > sizeof(file->_storage))
     abort();
-    return NULL;
-  }
 
   file->fd = fd;
   file->index = 0;
   file->size = len.QuadPart;
   file->base = NULL;
+  file->mapped = 0;
 
   memset(file->_storage, 0, sizeof(file->_storage));
 
-  if ((flags & URKEL_O_MMAP) && sizeof(void *) >= 8)
-    should_mmap = (file->size >= 1 && file->size <= 0x7ffff000);
+  if ((flags & URKEL_O_MMAP) && sizeof(void *) >= 8) {
+    if (file->size > 0) {
+      HANDLE mapping;
+      void *base;
 
-  if (should_mmap) {
-    mapping = CreateFileMappingA(handle, NULL, PAGE_READONLY, 0, 0, NULL);
+      mapping = CreateFileMappingA(handle, NULL, PAGE_READONLY, 0, 0, NULL);
 
-    if (mapping != INVALID_HANDLE_VALUE) {
+      if (mapping == INVALID_HANDLE_VALUE) {
+        urkel_file_close(file);
+        return NULL;
+      }
+
       base = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
 
-      if (base != NULL) {
-        file->base = base;
-        memcpy(file->_storage, &mapping, sizeof(HANDLE));
-      } else {
+      if (base == NULL)  {
         CloseHandle(mapping);
+        urkel_file_close(file);
+        return NULL;
       }
+
+      file->base = base;
+
+      memcpy(file->_storage, &mapping, sizeof(HANDLE));
     }
+
+    file->mapped = 1;
   }
 
   return file;
@@ -742,6 +749,9 @@ urkel_file_open(const char *name, int flags, uint32_t mode) {
 int
 urkel_file_pread(const urkel_file_t *file,
                  void *dst, size_t len, uint64_t pos) {
+  if (len == 0)
+    return 1;
+
   if (pos + len < pos)
     return 0;
 
@@ -758,10 +768,52 @@ urkel_file_pread(const urkel_file_t *file,
 
 int
 urkel_file_write(urkel_file_t *file, const void *src, size_t len) {
+  if (len == 0)
+    return 1;
+
+  if (file->base != NULL) {
+    HANDLE mapping;
+
+    memcpy(&mapping, file->_storage, sizeof(HANDLE));
+
+    if (!UnmapViewOfFile(file->base))
+      return 0;
+
+    if (!CloseHandle(mapping))
+      return 0;
+
+    file->base = NULL;
+  }
+
   if (!urkel_fs_write(file->fd, src, len))
     return 0;
 
   file->size += len;
+
+  if (file->mapped) {
+    HANDLE handle = (HANDLE)_get_osfhandle(file->fd);
+    HANDLE mapping;
+    void *base;
+
+    if (handle == INVALID_HANDLE_VALUE)
+      return 0;
+
+    mapping = CreateFileMappingA(handle, NULL, PAGE_READONLY, 0, 0, NULL);
+
+    if (mapping == INVALID_HANDLE_VALUE)
+      return 0;
+
+    base = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
+
+    if (base == NULL) {
+      CloseHandle(mapping);
+      return 0;
+    }
+
+    file->base = base;
+
+    memcpy(file->_storage, &mapping, sizeof(HANDLE));
+  }
 
   return 1;
 }
@@ -781,9 +833,9 @@ urkel_file_close(urkel_file_t *file) {
   HANDLE mapping;
   int ret = 1;
 
-  memcpy(&mapping, file->_storage, sizeof(HANDLE));
-
   if (file->base != NULL) {
+    memcpy(&mapping, file->_storage, sizeof(HANDLE));
+
     ret &= (UnmapViewOfFile(file->base) != 0);
     ret &= (CloseHandle(mapping) != 0);
   }

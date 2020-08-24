@@ -127,6 +127,7 @@ typedef struct urkel_file_s {
   uint32_t index;
   uint64_t size;
   void *base;
+  int mapped;
   char _storage[32];
 } urkel_file_t;
 

@@ -80,6 +80,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef MAP_FAILED
+#  define MAP_FAILED ((void *)-1)
+#endif
+
 #ifdef __wasi__
 /* lseek(3) is statement expression in wasi-libc. */
 #  pragma GCC diagnostic ignored "-Wgnu-statement-expression"
@@ -1041,15 +1045,6 @@ urkel_file_open(const char *name, int flags, uint32_t mode) {
   urkel_file_t *file;
   struct stat st;
   int fd;
-#ifdef HAVE_MMAP
-  int should_mmap = 0;
-  void *base;
-#endif
-
-  if (flags & URKEL_O_MMAP) {
-    if (!(flags & URKEL_O_RDONLY))
-      return NULL;
-  }
 
   fd = urkel_fs_open(name, flags, mode);
 
@@ -1072,23 +1067,27 @@ urkel_file_open(const char *name, int flags, uint32_t mode) {
   file->index = 0;
   file->size = st.st_size;
   file->base = NULL;
+  file->mapped = 0;
 
 #ifdef HAVE_MMAP
-  if ((flags & URKEL_O_MMAP) && sizeof(void *) >= 8)
-    should_mmap = (file->size >= 1 && file->size <= 0x7ffff000);
+  if ((flags & URKEL_O_MMAP) && sizeof(void *) >= 8) {
+    if (file->size > 0) {
+      void *base = mmap(NULL, file->size, PROT_READ, MAP_SHARED, fd, 0);
 
-  if (should_mmap) {
-    base = mmap(NULL, file->size, PROT_READ, MAP_SHARED, fd, 0);
+      if (base == MAP_FAILED) {
+        urkel_file_close(file);
+        return NULL;
+      }
 
-#if defined(MAP_FAILED)
-    if (base != MAP_FAILED) {
-#else
-    if (base != (void *)-1) {
-#endif
-      file->fd = -1;
       file->base = base;
-      close(fd);
+
+      if (flags & URKEL_O_RDONLY) {
+        close(file->fd);
+        file->fd = -1;
+      }
     }
+
+    file->mapped = 1;
   }
 #endif
 
@@ -1098,6 +1097,9 @@ urkel_file_open(const char *name, int flags, uint32_t mode) {
 int
 urkel_file_pread(const urkel_file_t *file,
                  void *dst, size_t len, uint64_t pos) {
+  if (len == 0)
+    return 1;
+
   if (pos + len < pos)
     return 0;
 
@@ -1116,10 +1118,33 @@ urkel_file_pread(const urkel_file_t *file,
 
 int
 urkel_file_write(urkel_file_t *file, const void *src, size_t len) {
+  if (len == 0)
+    return 1;
+
+#ifdef HAVE_MMAP
+  if (file->base != NULL) {
+    if (munmap(file->base, file->size) != 0)
+      return 0;
+
+    file->base = NULL;
+  }
+#endif
+
   if (!urkel_fs_write(file->fd, src, len))
     return 0;
 
   file->size += len;
+
+#ifdef HAVE_MMAP
+  if (file->mapped) {
+    void *base = mmap(NULL, file->size, PROT_READ, MAP_SHARED, file->fd, 0);
+
+    if (base == MAP_FAILED)
+      return 0;
+
+    file->base = base;
+  }
+#endif
 
   return 1;
 }

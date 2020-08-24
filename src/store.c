@@ -29,7 +29,7 @@
 #define READ_BUFFER (1 << 20)
 #define SLAB_SIZE (READ_BUFFER - (READ_BUFFER % META_SIZE))
 #define KEY_SIZE 32
-#define WRITE_FLAGS (URKEL_O_RDWR | URKEL_O_CREAT | URKEL_O_APPEND | URKEL_O_RANDOM)
+#define WRITE_FLAGS (URKEL_O_RDWR | URKEL_O_CREAT | URKEL_O_APPEND | URKEL_O_RANDOM | URKEL_O_MMAP)
 #define READ_FLAGS (URKEL_O_RDONLY | URKEL_O_RANDOM | URKEL_O_MMAP)
 #define CACHE_HASH(k) urkel_murmur3(k, URKEL_HASH_SIZE, 0)
 #define CHACHE_EQUAL(a, b) (memcmp(a, b, URKEL_HASH_SIZE) == 0)
@@ -87,7 +87,7 @@ typedef struct urkel_store_s {
  * Constants
  */
 
-static urkel_file_t urkel_null_file = {-1, 0, 0, NULL, {0}};
+static urkel_file_t urkel_null_file = {-1, 0, 0, NULL, 0, {0}};
 
 /*
  * Meta Root
@@ -982,6 +982,9 @@ fail:
   return ret;
 }
 
+static void
+urkel_store_uninit(data_store_t *store);
+
 static int
 urkel_store_init(data_store_t *store, const char *prefix) {
   uint32_t index;
@@ -1014,7 +1017,7 @@ urkel_store_init(data_store_t *store, const char *prefix) {
   store->current = urkel_store_open_file(store, index, WRITE_FLAGS);
 
   if (store->current == NULL) {
-    urkel_store_close(store);
+    urkel_store_uninit(store);
     return 0;
   }
 
@@ -1023,7 +1026,7 @@ urkel_store_init(data_store_t *store, const char *prefix) {
 
   if (!urkel_store_read_root(store, &store->state.root_node,
                                     &store->state.root_ptr)) {
-    urkel_store_close(store);
+    urkel_store_uninit(store);
     return 0;
   }
 
