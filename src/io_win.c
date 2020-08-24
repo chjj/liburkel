@@ -757,6 +757,16 @@ urkel_file_open(const char *name, int flags, uint32_t mode) {
   return file;
 }
 
+#ifdef _MSC_VER
+static LONG
+urkel_fs__ex_filter(LONG excode) {
+  if (excode == (LONG)EXCEPTION_IN_PAGE_ERROR)
+    return EXCEPTION_EXECUTE_HANDLER;
+
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
 int
 urkel_file_pread(const urkel_file_t *file,
                  void *dst, size_t len, uint64_t pos) {
@@ -770,7 +780,16 @@ urkel_file_pread(const urkel_file_t *file,
     return 0;
 
   if (file->base != NULL) {
+#if defined(_MSC_VER)
+    __try {
+      memcpy(dst, (const unsigned char *)file->base + pos, len);
+    }
+    __except (urkel_fs__ex_filter(GetExceptionCode())) {
+      return 0;
+    }
+#else
     memcpy(dst, (const unsigned char *)file->base + pos, len);
+#endif
     return 1;
   }
 
