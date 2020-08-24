@@ -377,7 +377,6 @@ urkel_node_hash(urkel_node_t *node) {
 
   switch (node->type) {
     case URKEL_NODE_NULL: {
-      CHECK(node != &urkel_node_null);
       break;
     }
 
