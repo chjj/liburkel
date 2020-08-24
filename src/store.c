@@ -49,7 +49,8 @@ typedef struct urkel_slab_s {
   size_t data_size; /* Total bytes allocated. */
   size_t data_len; /* Total bytes written. */
   size_t data_off; /* Bytes written since last file rollover. */
-  size_t offsets[256]; /* Past offsets (one for each rollover). */
+  size_t *offsets; /* Past offsets (one for each rollover). */
+  size_t offsets_len; /* Allocated length of offsets array. */
   size_t steps; /* Number of elements in `offsets`. */
   size_t start; /* Index at which urkel_store_flush left off. */
   uint64_t file_pos; /* Current file position. */
@@ -152,6 +153,9 @@ urkel_slab_uninit(urkel_slab_t *slab) {
   if (slab->data != NULL)
     free(slab->data);
 
+  if (slab->offsets != NULL)
+    free(slab->offsets);
+
   urkel_slab_init(slab);
 }
 
@@ -161,10 +165,20 @@ urkel_slab_write(urkel_slab_t *slab, const unsigned char *data, size_t len) {
 
   CHECK(len <= MAX_FILE_SIZE);
 
-  if (slab->file_pos + len > MAX_FILE_SIZE) {
-    slab->offsets[slab->steps++] = slab->data_off;
+  if (slab->offsets_len == 0) {
+    slab->offsets = checked_malloc(2 * sizeof(size_t));
+    slab->offsets_len = 1;
+  }
 
-    ASSERT(slab->steps != 256);
+  if (slab->file_pos + len > MAX_FILE_SIZE) {
+    if (slab->steps == slab->offsets_len) {
+      size_t new_size = (slab->offsets_len + 2) * sizeof(size_t);
+
+      slab->offsets = checked_realloc(slab->offsets, new_size);
+      slab->offsets_len += 1;
+    }
+
+    slab->offsets[slab->steps++] = slab->data_off;
 
     slab->data_off = 0;
     slab->file_pos = 0;
