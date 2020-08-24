@@ -662,16 +662,21 @@ urkel_fs_fdatasync(int fd) {
 int
 urkel_fs_flock(int fd, int operation) {
   HANDLE handle = (HANDLE)_get_osfhandle(fd);
+  DWORD flags = LOCKFILE_FAIL_IMMEDIATELY;
+  OVERLAPPED ol;
 
   if (handle == INVALID_HANDLE_VALUE)
     return 0;
 
+  memset(&ol, 0, sizeof(ol));
+
   switch (operation) {
-    case URKEL_LOCK_SH:
     case URKEL_LOCK_EX:
-      return LockFile(handle, 0, 0, MAXDWORD, MAXDWORD);
+      flags |= LOCKFILE_EXCLUSIVE_LOCK;
+    case URKEL_LOCK_SH:
+      return LockFileEx(handle, flags, 0, MAXDWORD, MAXDWORD, &ol) != 0;
     case URKEL_LOCK_UN:
-      return UnlockFile(handle, 0, 0, MAXDWORD, MAXDWORD);
+      return UnlockFileEx(handle, 0, MAXDWORD, MAXDWORD, &ol) != 0;
   }
 
   return 0;
