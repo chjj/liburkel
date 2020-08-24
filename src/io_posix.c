@@ -52,10 +52,12 @@
 #  define _LARGE_TIME_API
 #endif
 
+#undef HAVE_FCNTL
 #undef HAVE_MMAP
 #undef HAVE_PTHREAD
 
 #if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
+#  define HAVE_FCNTL
 #  define HAVE_MMAP
 #  define HAVE_PTHREAD
 #endif
@@ -479,7 +481,7 @@ urkel_fs__open(const char *name, int flags_, uint32_t mode_) {
   else
     fd = open(name, flags);
 
-#if defined(F_GETFD) && defined(F_SETFD) && defined(FD_CLOEXEC)
+#if defined(HAVE_FCNTL) && defined(F_SETFD) && defined(FD_CLOEXEC)
   if (fd == -1)
     return fd;
 
@@ -998,7 +1000,7 @@ urkel_fs_fdatasync(int fd) {
 
 int
 urkel_fs_flock(int fd, int operation) {
-#if defined(F_SETLK)
+#if defined(HAVE_FCNTL) && defined(F_SETLK)
   struct flock fl;
   int type;
 
