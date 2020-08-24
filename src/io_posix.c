@@ -1182,7 +1182,7 @@ urkel_path_normalize(char *path) {
   /* Logic from Apache[1], modified to handle filesystem
    * paths. This function is necessary on platforms like
    * WASI (where uvwasi does not normalize file paths
-   * before checking against preopens.
+   * before checking against preopens).
    *
    * [1] https://github.com/apache/httpd/blob/85ab7bc/server/util.c#L500
    */
