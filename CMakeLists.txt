@@ -187,6 +187,9 @@ if(URKEL_WASM)
     string(REPLACE "\"" "" CMAKE_CROSSCOMPILING_EMULATOR
            "${CMAKE_CROSSCOMPILING_EMULATOR}")
 
+    # In the future we should set `-s NODERAWFS=1`.
+    # For now, the node.js filesystem backend is broken:
+    # https://github.com/emscripten-core/emscripten/issues/7487
     set(urkel_ldflags "SHELL:-s SINGLE_FILE=1"
                       "SHELL:-s ASSERTIONS=0"
                       "SHELL:-s NODEJS_CATCH_EXIT=0"
