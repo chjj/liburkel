@@ -18,11 +18,7 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
-#ifdef __wasi__
-#  define URKEL_PATH "/urkel_db_test"
-#else
-#  define URKEL_PATH "./urkel_db_test"
-#endif
+#define URKEL_PATH "./urkel_db_test"
 
 typedef struct urkel_kv_s {
   unsigned char key[32];

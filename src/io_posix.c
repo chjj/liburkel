@@ -540,7 +540,7 @@ urkel_fs_lstat(const char *name, urkel_stat_t *out) {
 int
 urkel_fs_exists(const char *name) {
   urkel_stat_t st;
-  return urkel_fs_stat(name, &st);
+  return urkel_fs_lstat(name, &st);
 }
 
 int
@@ -1177,6 +1177,79 @@ urkel_ps_cwd(char *buf, size_t size) {
  * Path
  */
 
+static size_t
+urkel_path_normalize(char *path) {
+  /* Logic from Apache[1], modified to handle filesystem
+   * paths. This function is necessary on platforms like
+   * WASI (where uvwasi does not normalize file paths
+   * before checking against preopens.
+   *
+   * [1] https://github.com/apache/httpd/blob/85ab7bc/server/util.c#L500
+   */
+  size_t l = 1;
+  size_t w = 1;
+
+  if (path[0] != '/') {
+    if (path[0] == '\0')
+      return 0;
+
+    l = 0;
+    w = 0;
+  }
+
+  while (path[l] != '\0') {
+    if (w == 0 || path[w - 1] == '/') {
+      /* Collapse ///// sequences to / */
+      if (path[l] == '/') {
+        do {
+          l += 1;
+        } while (path[l] == '/');
+
+        continue;
+      }
+
+      if (path[l] == '.') {
+        /* Remove /./ segments */
+        if (path[l + 1] == '/' || path[l + 1] == '\0') {
+          l += 1;
+
+          if (path[l] != '\0')
+            l += 1;
+
+          continue;
+        }
+
+        /* Remove /xx/../ segments */
+        if (path[l + 1] == '.' && (path[l + 2] == '/' || path[l + 2] == '\0')) {
+          /* Wind w back to remove the previous segment */
+          if (w > 1) {
+            do {
+              w -= 1;
+            } while (w > 0 && path[w - 1] != '/');
+          }
+
+          /* Move l forward to the next segment */
+          l += 2;
+
+          if (path[l] != '\0')
+            l += 1;
+
+          continue;
+        }
+      }
+    }
+
+    path[w++] = path[l++];
+  }
+
+  while (w > 1 && path[w - 1] == '/')
+    w -= 1;
+
+  path[w] = '\0';
+
+  return w;
+}
+
 char *
 urkel_path_resolve(const char *path) {
   size_t plen = path != NULL ? strlen(path) : 0;
@@ -1184,17 +1257,13 @@ urkel_path_resolve(const char *path) {
   size_t olen;
   char *out;
 
-  while (plen > 1 && path[plen - 1] == '/')
-    plen -= 1;
-
   if (plen > 0 && path[0] == '/') {
     out = malloc(plen + 1);
-    olen = plen;
 
     if (out == NULL)
       return NULL;
 
-    memcpy(out, path, plen);
+    memcpy(out, path, plen + 1);
   } else {
     out = malloc(max + 1);
 
@@ -1215,16 +1284,13 @@ urkel_path_resolve(const char *path) {
 
     if (plen != 0) {
       out[olen++] = '/';
-
-      memcpy(out + olen, path, plen);
-
-      olen += plen;
+      memcpy(out + olen, path, plen + 1);
     }
   }
 
-  out[olen++] = '\0';
+  olen = urkel_path_normalize(out);
 
-  return realloc(out, olen);
+  return realloc(out, olen + 1);
 }
 
 /*

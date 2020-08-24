@@ -1065,16 +1065,23 @@ urkel_store_close(data_store_t *store) {
 
 int
 urkel_store_destroy(const char *prefix) {
-  size_t path_len = strlen(prefix);
+  char *prefix_ = urkel_path_resolve(prefix);
   char path[URKEL_PATH_MAX + 1];
+  size_t path_len;
   urkel_dirent_t **list;
   size_t i, count;
+  int ret = 0;
   int fd;
 
-  if (path_len + 10 > URKEL_PATH_MAX)
+  if (prefix_ == NULL)
     return 0;
 
-  memcpy(path, prefix, path_len);
+  path_len = strlen(prefix_);
+
+  if (path_len + 10 > URKEL_PATH_MAX)
+    goto fail;
+
+  memcpy(path, prefix_, path_len + 1);
 
   path[path_len++] = URKEL_PATH_SEP;
 
@@ -1083,12 +1090,12 @@ urkel_store_destroy(const char *prefix) {
   fd = urkel_fs_open_lock(path, 0640);
 
   if (fd == -1)
-    return 0;
+    goto fail;
 
   urkel_fs_close_lock(fd);
 
-  if (!urkel_fs_scandir(prefix, &list, &count))
-    return 0;
+  if (!urkel_fs_scandir(prefix_, &list, &count))
+    goto fail;
 
   for (i = 0; i < count; i++) {
     const char *name = list[i]->d_name;
@@ -1107,5 +1114,8 @@ urkel_store_destroy(const char *prefix) {
 
   free(list);
 
-  return urkel_fs_rmdir(prefix);
+  ret = urkel_fs_rmdir(prefix_);
+fail:
+  free(prefix_);
+  return ret;
 }
