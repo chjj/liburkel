@@ -85,7 +85,7 @@ bench_urkel(void) {
 
   ASSERT(urkel_tx_commit(tx));
 
-  bench_end(&tv, i);
+  bench_end(&tv, 1);
 
   urkel_tx_destroy(tx);
   urkel_close(db);
@@ -125,13 +125,13 @@ bench_urkel(void) {
 
   ASSERT(urkel_tx_commit(tx));
 
-  bench_end(&tv, i);
+  bench_end(&tv, 1);
 
   bench_start(&tv, "commit (nothing)");
 
   ASSERT(urkel_tx_commit(tx));
 
-  bench_end(&tv, i);
+  bench_end(&tv, 1);
 
   urkel_tx_destroy(tx);
   urkel_close(db);
