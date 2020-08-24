@@ -1,5 +1,7 @@
 # liburkel
 
+![cmake](https://github.com/chjj/liburkel/workflows/cmake/badge.svg)
+
 TODO
 
 ## Contribution and License Agreement
