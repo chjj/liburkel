@@ -271,7 +271,9 @@ urkel_fs_chmod(const char *name, uint32_t mode) {
   if (attributes == INVALID_FILE_ATTRIBUTES)
     return 0;
 
-  if (!(mode & URKEL_S_IWUSR))
+  if (mode & URKEL_S_IWUSR)
+    attributes &= ~FILE_ATTRIBUTE_READONLY;
+  else
     attributes |= FILE_ATTRIBUTE_READONLY;
 
   return SetFileAttributesA(name, attributes) != 0;
