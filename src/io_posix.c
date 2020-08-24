@@ -658,6 +658,7 @@ urkel_fs_scandir(const char *name, urkel_dirent_t ***out, size_t *count) {
     }
 
     item->d_ino = entry.d_ino;
+    item->d_type = URKEL_DT_REG;
 
     switch (entry.d_namlen) {
       case 4: {
@@ -777,6 +778,47 @@ fail:
     }
 
     item->d_ino = entry->d_ino;
+    item->d_type = URKEL_DT_UNKNOWN;
+
+#ifdef DT_UNKNOWN
+    switch (entry->d_type) {
+#ifdef DT_FIFO
+      case DT_FIFO:
+        item->d_type = URKEL_DT_FIFO;
+        break;
+#endif
+#ifdef DT_CHR
+      case DT_CHR:
+        item->d_type = URKEL_DT_CHR;
+        break;
+#endif
+#ifdef DT_DIR
+      case DT_DIR:
+        item->d_type = URKEL_DT_DIR;
+        break;
+#endif
+#ifdef DT_BLK
+      case DT_BLK:
+        item->d_type = URKEL_DT_BLK;
+        break;
+#endif
+#ifdef DT_REG
+      case DT_REG:
+        item->d_type = URKEL_DT_REG;
+        break;
+#endif
+#ifdef DT_LNK
+      case DT_LNK:
+        item->d_type = URKEL_DT_LNK;
+        break;
+#endif
+#ifdef DT_SOCK
+      case DT_SOCK:
+        item->d_type = URKEL_DT_SOCK;
+        break;
+#endif
+    }
+#endif /* !DT_UNKNOWN */
 
     memcpy(item->d_name, entry->d_name, len + 1);
 

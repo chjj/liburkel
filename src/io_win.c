@@ -390,6 +390,15 @@ urkel_fs_scandir(const char *name, urkel_dirent_t ***out, size_t *count) {
 
     item->d_ino = 0;
 
+    if (fdata.dwFileAttributes & FILE_ATTRIBUTE_DEVICE)
+      item->d_type = URKEL_DT_CHR;
+    else if (fdata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+      item->d_type = URKEL_DT_LNK;
+    else if (fdata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+      item->d_type = URKEL_DT_DIR;
+    else
+      item->d_type = URKEL_DT_REG;
+
     memcpy(item->d_name, fdata.cFileName, len + 1);
 
     list[i++] = item;

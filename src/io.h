@@ -67,6 +67,15 @@
 #define URKEL_S_ISFIFO(m) (((m) & URKEL_S_IFMT) == URKEL_S_IFIFO)
 #define URKEL_S_ISSOCK(m) (((m) & URKEL_S_IFMT) == URKEL_S_IFSOCK)
 
+#define URKEL_DT_UNKNOWN 0
+#define URKEL_DT_FIFO    1
+#define URKEL_DT_CHR     2
+#define URKEL_DT_DIR     4
+#define URKEL_DT_BLK     6
+#define URKEL_DT_REG     8
+#define URKEL_DT_LNK     10
+#define URKEL_DT_SOCK    12
+
 #define URKEL_SEEK_SET 0
 #define URKEL_SEEK_CUR 1
 #define URKEL_SEEK_END 2
@@ -89,11 +98,6 @@
 /*
  * Structs
  */
-
-typedef struct urkel_iovec_s {
-  void *iov_base;
-  size_t iov_len;
-} urkel_iovec_t;
 
 typedef struct urkel_timespec_s {
   int64_t /* time_t */ tv_sec;
@@ -118,7 +122,8 @@ typedef struct urkel_stat_s {
 } urkel_stat_t;
 
 typedef struct urkel_dirent_s {
-  uint64_t d_ino;
+  uint64_t /* ino_t */ d_ino;
+  int /* unsigned char */ d_type;
   char d_name[256];
 } urkel_dirent_t;
 
