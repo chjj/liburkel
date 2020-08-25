@@ -176,23 +176,25 @@ urkel_fs_open(const char *name, int flags, uint32_t mode) {
 static int
 urkel_fs__stat_handle(HANDLE handle, urkel_stat_t *st) {
   BY_HANDLE_FILE_INFORMATION info;
-  ULARGE_INTEGER ul;
+  ULARGE_INTEGER ul_ino, ul_size;
 
   if (!GetFileInformationByHandle(handle, &info))
     return 0;
 
+  ul_ino.LowPart = info.nFileIndexLow;
+  ul_ino.HighPart = info.nFileIndexHigh;
+
+  ul_size.LowPart = info.nFileSizeLow;
+  ul_size.HighPart = info.nFileSizeHigh;
+
   st->st_dev = info.dwVolumeSerialNumber;
-  ul.LowPart = info.nFileIndexLow;
-  ul.HighPart = info.nFileIndexHigh;
-  st->st_ino = ul.QuadPart;
+  st->st_ino = ul_ino.QuadPart;
   st->st_mode = 0;
   st->st_nlink = info.nNumberOfLinks;
   st->st_uid = 0;
   st->st_gid = 0;
   st->st_rdev = 0;
-  ul.LowPart = info.nFileSizeLow;
-  ul.HighPart = info.nFileSizeHigh;
-  st->st_size = ul.QuadPart;
+  st->st_size = ul_size.QuadPart;
 
   FILETIME_TO_TIMESPEC(st->st_atim, info.ftLastAccessTime);
   FILETIME_TO_TIMESPEC(st->st_ctim, info.ftCreationTime);
@@ -202,7 +204,11 @@ urkel_fs__stat_handle(HANDLE handle, urkel_stat_t *st) {
   st->st_blksize = 4096;
   st->st_blocks = (st->st_size + 4095) / 4096;
 
-  if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+  if (info.dwFileAttributes & FILE_ATTRIBUTE_DEVICE) {
+    st->st_mode |= URKEL_S_IFCHR;
+  } else if (info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+    st->st_mode |= URKEL_S_IFLNK;
+  } else if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
     st->st_mode |= URKEL_S_IFDIR;
     st->st_size = 0;
   } else {
@@ -271,6 +277,12 @@ urkel_fs_chmod(const char *name, uint32_t mode) {
   if (attributes == INVALID_FILE_ATTRIBUTES)
     return 0;
 
+  if (attributes & (FILE_ATTRIBUTE_DEVICE
+                  | FILE_ATTRIBUTE_REPARSE_POINT
+                  | FILE_ATTRIBUTE_DIRECTORY)) {
+    return 1;
+  }
+
   if (mode & URKEL_S_IWUSR)
     attributes &= ~FILE_ATTRIBUTE_READONLY;
   else
@@ -301,6 +313,15 @@ urkel_fs_rename(const char *oldpath, const char *newpath) {
 
 int
 urkel_fs_unlink(const char *name) {
+  DWORD attributes = GetFileAttributesA(name);
+
+  if (attributes != INVALID_FILE_ATTRIBUTES) {
+    if (attributes & FILE_ATTRIBUTE_READONLY) {
+      attributes &= ~FILE_ATTRIBUTE_READONLY;
+      SetFileAttributesA(name, attributes);
+    }
+  }
+
   return DeleteFileA(name) != 0;
 }
 
@@ -327,9 +348,9 @@ int
 urkel_fs_scandir(const char *name, urkel_dirent_t ***out, size_t *count) {
   HANDLE handle = INVALID_HANDLE_VALUE;
   char buf[URKEL_PATH_MAX + 1];
-  size_t len = strlen(name);
   urkel_dirent_t **list = NULL;
   urkel_dirent_t *item = NULL;
+  size_t len = strlen(name);
   WIN32_FIND_DATAA fdata;
   size_t size = 8;
   size_t i = 0;
@@ -490,15 +511,12 @@ urkel_fs_read(int fd, void *dst, size_t len) {
   HANDLE handle = (HANDLE)_get_osfhandle(fd);
   unsigned char *raw = dst;
   DWORD nread;
-  int result;
 
   if (handle == INVALID_HANDLE_VALUE)
     return 0;
 
   while (len > 0) {
-    result = ReadFile(handle, raw, len, &nread, NULL);
-
-    if (!result)
+    if (!ReadFile(handle, raw, len, &nread, NULL))
       break;
 
     if ((size_t)nread > len)
@@ -516,15 +534,12 @@ urkel_fs_write(int fd, const void *src, size_t len) {
   HANDLE handle = (HANDLE)_get_osfhandle(fd);
   const unsigned char *raw = src;
   DWORD nread;
-  int result;
 
   if (handle == INVALID_HANDLE_VALUE)
     return 0;
 
   while (len > 0) {
-    result = WriteFile(handle, raw, len, &nread, NULL);
-
-    if (!result)
+    if (!WriteFile(handle, raw, len, &nread, NULL))
       break;
 
     if ((size_t)nread > len)
@@ -542,29 +557,27 @@ urkel_fs_pread(int fd, void *dst, size_t len, int64_t pos) {
   HANDLE handle = (HANDLE)_get_osfhandle(fd);
   LARGE_INTEGER zero, old, pos_;
   unsigned char *raw = dst;
-  OVERLAPPED overlap;
   int restore = 0;
+  OVERLAPPED ol;
   DWORD nread;
-  int result;
 
   if (handle == INVALID_HANDLE_VALUE)
     return 0;
 
   zero.QuadPart = 0;
 
-  memset(&overlap, 0, sizeof(overlap));
+  memset(&ol, 0, sizeof(ol));
 
   if (SetFilePointerEx(handle, zero, &old, FILE_CURRENT))
     restore = 1;
 
   while (len > 0) {
     pos_.QuadPart = pos;
-    overlap.Offset = pos_.LowPart;
-    overlap.OffsetHigh = pos_.HighPart;
 
-    result = ReadFile(handle, raw, len, &nread, &overlap);
+    ol.Offset = pos_.LowPart;
+    ol.OffsetHigh = pos_.HighPart;
 
-    if (!result)
+    if (!ReadFile(handle, raw, len, &nread, &ol))
       break;
 
     if ((size_t)nread > len)
@@ -586,29 +599,27 @@ urkel_fs_pwrite(int fd, const void *src, size_t len, int64_t pos) {
   HANDLE handle = (HANDLE)_get_osfhandle(fd);
   LARGE_INTEGER zero, old, pos_;
   const unsigned char *raw = src;
-  OVERLAPPED overlap;
   int restore = 0;
+  OVERLAPPED ol;
   DWORD nread;
-  int result;
 
   if (handle == INVALID_HANDLE_VALUE)
     return 0;
 
   zero.QuadPart = 0;
 
-  memset(&overlap, 0, sizeof(overlap));
+  memset(&ol, 0, sizeof(ol));
 
   if (SetFilePointerEx(handle, zero, &old, FILE_CURRENT))
     restore = 1;
 
   while (len > 0) {
     pos_.QuadPart = pos;
-    overlap.Offset = pos_.LowPart;
-    overlap.OffsetHigh = pos_.HighPart;
 
-    result = WriteFile(handle, raw, len, &nread, &overlap);
+    ol.Offset = pos_.LowPart;
+    ol.OffsetHigh = pos_.HighPart;
 
-    if (!result)
+    if (!WriteFile(handle, raw, len, &nread, &ol))
       break;
 
     if ((size_t)nread > len)
@@ -694,8 +705,8 @@ urkel_fs_close(int fd) {
 urkel_file_t *
 urkel_file_open(const char *name, int flags, uint32_t mode) {
   urkel_file_t *file;
-  HANDLE handle;
   LARGE_INTEGER len;
+  HANDLE handle;
   int fd;
 
   fd = urkel_fs_open(name, flags, mode);
@@ -910,12 +921,12 @@ urkel_path_resolve(const char *path) {
   char *out;
 
   if (len < 1 || len > MAX_PATH)
-    return 0;
+    return NULL;
 
   out = malloc(len + 1);
 
   if (out == NULL)
-    return 0;
+    return NULL;
 
   memcpy(out, buf, len + 1);
 
