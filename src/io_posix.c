@@ -23,7 +23,18 @@
 #  undef _POSIX_C_SOURCE
 #  define _GNU_SOURCE
 #  define _POSIX_C_SOURCE 200112
-#elif defined(_AIX) || defined(__OS400__)
+#elif defined(__MVS__) /* OS/390 (z/OS) */
+#  undef _UNIX03_THREADS
+#  undef _UNIX03_SOURCE
+#  undef _XOPEN_SOURCE_EXTENDED
+#  undef _ALL_SOURCE
+#  undef _LARGE_TIME_API
+#  define _UNIX03_THREADS
+#  define _UNIX03_SOURCE
+#  define _XOPEN_SOURCE_EXTENDED
+#  define _ALL_SOURCE
+#  define _LARGE_TIME_API
+#elif defined(_AIX) || defined(__PASE__) /* AIX / IBM i (OS/400) */
 #  undef _ALL_SOURCE
 #  undef _XOPEN_SOURCE
 #  undef _LINUX_SOURCE_COMPAT
@@ -39,17 +50,6 @@
 #  define __EXTENSIONS__
 #  define _XOPEN_SOURCE 500
 #  define _REENTRANT
-#elif defined(__OS390__)
-#  undef _UNIX03_THREADS
-#  undef _UNIX03_SOURCE
-#  undef _XOPEN_SOURCE_EXTENDED
-#  undef _ALL_SOURCE
-#  undef _LARGE_TIME_API
-#  define _UNIX03_THREADS
-#  define _UNIX03_SOURCE
-#  define _XOPEN_SOURCE_EXTENDED
-#  define _ALL_SOURCE
-#  define _LARGE_TIME_API
 #endif
 
 #undef HAVE_FCNTL
@@ -519,8 +519,6 @@ int
 urkel_fs_stat(const char *name, urkel_stat_t *out) {
   struct stat st;
 
-  memset(out, 0, sizeof(*out));
-
   if (stat(name, &st) == 0) {
     urkel_fs__convert_stat(out, &st);
     return 1;
@@ -532,8 +530,6 @@ urkel_fs_stat(const char *name, urkel_stat_t *out) {
 int
 urkel_fs_lstat(const char *name, urkel_stat_t *out) {
   struct stat st;
-
-  memset(out, 0, sizeof(*out));
 
   if (lstat(name, &st) == 0) {
     urkel_fs__convert_stat(out, &st);
@@ -729,7 +725,7 @@ fail:
   *count = 0;
 
   return 0;
-#else
+#else /* !__wasi__ */
   urkel_dirent_t **list = NULL;
   urkel_dirent_t *item = NULL;
   struct dirent *entry;
@@ -853,14 +849,12 @@ fail:
   *count = 0;
 
   return 0;
-#endif
+#endif /* !__wasi__ */
 }
 
 int
 urkel_fs_fstat(int fd, urkel_stat_t *out) {
   struct stat st;
-
-  memset(out, 0, sizeof(*out));
 
   if (fstat(fd, &st) == 0) {
     urkel_fs__convert_stat(out, &st);
@@ -1012,9 +1006,7 @@ int
 urkel_fs_fsync(int fd) {
   /* From libuv. */
 #if defined(__APPLE__)
-  int r;
-
-  r = fcntl(fd, F_FULLFSYNC);
+  int r = fcntl(fd, F_FULLFSYNC);
 
   if (r != 0)
     r = fcntl(fd, 85 /* F_BARRIERFSYNC */);
@@ -1391,6 +1383,8 @@ urkel_sys_random(void *dst, size_t size) {
 
     uuid[6] = uuid[14];
     uuid[8] = uuid[15];
+
+    memcpy(dst, uuid, max);
 
     data += max;
     size -= max;
