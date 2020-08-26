@@ -62,6 +62,7 @@ typedef struct urkel_filemap_s {
   urkel_file_t **items;
   size_t size;
   size_t len;
+  urkel_rwlock_t *lock;
 } urkel_filemap_t;
 
 KHASH_INIT(nodes, const unsigned char *,
@@ -209,11 +210,16 @@ urkel_slab_write(urkel_slab_t *slab, const unsigned char *data, size_t len) {
 
 static void
 urkel_filemap_init(urkel_filemap_t *fm) {
-  memset(fm, 0, sizeof(*fm));
+  fm->items = NULL;
+  fm->size = 0;
+  fm->len = 0;
+  fm->lock = urkel_rwlock_create();
 }
 
 static void
 urkel_filemap_uninit(urkel_filemap_t *fm) {
+  urkel_rwlock_wrlock(fm->lock);
+
   if (fm->items != NULL) {
     size_t i;
 
@@ -227,19 +233,30 @@ urkel_filemap_uninit(urkel_filemap_t *fm) {
     free(fm->items);
   }
 
-  urkel_filemap_init(fm);
+  urkel_rwlock_wrunlock(fm->lock);
+  urkel_rwlock_destroy(fm->lock);
 }
 
 static urkel_file_t *
 urkel_filemap_lookup(urkel_filemap_t *fm, size_t index) {
-  if (index >= fm->len)
-    return NULL;
+  urkel_file_t *file = NULL;
 
-  return fm->items[index];
+  urkel_rwlock_rdlock(fm->lock);
+
+  if (index >= fm->len)
+    goto fail;
+
+  file = fm->items[index];
+
+fail:
+  urkel_rwlock_rdunlock(fm->lock);
+  return file;
 }
 
 static void
 urkel_filemap_insert(urkel_filemap_t *fm, urkel_file_t *file) {
+  urkel_rwlock_wrlock(fm->lock);
+
   if (file->index >= fm->len) {
     size_t new_size = (file->index + 1) * sizeof(urkel_file_t *);
 
@@ -255,14 +272,18 @@ urkel_filemap_insert(urkel_filemap_t *fm, urkel_file_t *file) {
 
   fm->items[file->index] = file;
   fm->size += 1;
+
+  urkel_rwlock_wrunlock(fm->lock);
 }
 
 static urkel_file_t *
 urkel_filemap_remove(urkel_filemap_t *fm, size_t index) {
-  urkel_file_t *file;
+  urkel_file_t *file = NULL;
+
+  urkel_rwlock_wrlock(fm->lock);
 
   if (index >= fm->len)
-    return NULL;
+    goto fail;
 
   file = fm->items[index];
 
@@ -271,6 +292,8 @@ urkel_filemap_remove(urkel_filemap_t *fm, size_t index) {
     fm->size -= 1;
   }
 
+fail:
+  urkel_rwlock_wrunlock(fm->lock);
   return file;
 }
 
@@ -379,28 +402,26 @@ urkel_store_close_file(data_store_t *, uint32_t);
 
 static void
 urkel_store_evict(data_store_t *store) {
-  size_t i, tries;
+  /* Write lock is held. */
+  while (store->files.len > MAX_OPEN_FILES) {
+    size_t tries = (size_t)rand() % (store->files.size - 1);
+    size_t i;
 
-  CHECK(store->files.size > 1);
+    for (i = 0; i < store->files.len; i++) {
+      if (store->files.items[i] == NULL)
+        continue;
 
-  tries = (size_t)rand() % (store->files.size - 1);
+      if (i == store->index)
+        continue;
 
-  for (i = 0; i < store->files.len; i++) {
-    if (store->files.items[i] == NULL)
-      continue;
+      if (tries == 0) {
+        urkel_store_close_file(store, i);
+        break;
+      }
 
-    if (i == store->index)
-      continue;
-
-    if (tries == 0) {
-      urkel_store_close_file(store, i);
-      return;
+      tries -= 1;
     }
-
-    tries -= 1;
   }
-
-  urkel_abort();
 }
 
 static urkel_file_t *
@@ -425,8 +446,10 @@ urkel_store_open_file(data_store_t *store, uint32_t index, int flags) {
 
   file->index = index;
 
-  if (store->files.size >= MAX_OPEN_FILES)
+  if (flags == WRITE_FLAGS) {
+    /* Only evict if the write lock is held. */
     urkel_store_evict(store);
+  }
 
   urkel_filemap_insert(&store->files, file);
 
@@ -435,6 +458,7 @@ urkel_store_open_file(data_store_t *store, uint32_t index, int flags) {
 
 static void
 urkel_store_close_file(data_store_t *store, uint32_t index) {
+  /* Write lock is held. */
   urkel_file_t *file = urkel_filemap_remove(&store->files, index);
 
   if (file != NULL) {
@@ -463,6 +487,7 @@ urkel_store_read(data_store_t *store,
 
 static int
 urkel_store_sync(data_store_t *store) {
+  /* Write lock is held. */
   return urkel_file_datasync(store->current);
 }
 
@@ -470,6 +495,7 @@ static int
 urkel_store_write(data_store_t *store,
                   const unsigned char *data,
                   size_t size) {
+  /* Write lock is held. */
   urkel_file_t *file;
 
   if (store->current->size + size > MAX_FILE_SIZE) {
@@ -595,13 +621,10 @@ urkel_store_retrieve(data_store_t *store,
 }
 
 urkel_node_t *
-urkel_store_resolve(data_store_t *store, urkel_node_t *node) {
-  urkel_node_t *out;
+urkel_store_resolve(data_store_t *store, const urkel_node_t *node) {
+  urkel_node_t *out = checked_malloc(sizeof(urkel_node_t));
 
-  if (node->type != URKEL_NODE_HASH)
-    return node;
-
-  out = checked_malloc(sizeof(urkel_node_t));
+  CHECK(node->type == URKEL_NODE_HASH);
 
   if (!urkel_store_read_node(store, out, &node->ptr)) {
     free(out);
@@ -615,6 +638,7 @@ urkel_store_resolve(data_store_t *store, urkel_node_t *node) {
 
 void
 urkel_store_write_node(data_store_t *store, urkel_node_t *node) {
+  /* Write lock is held. */
   urkel_slab_t *slab = &store->slab;
   unsigned char raw[URKEL_NODE_SIZE];
   size_t size = urkel_node_write(node, raw) - raw;
@@ -633,6 +657,7 @@ urkel_store_write_node(data_store_t *store, urkel_node_t *node) {
 
 void
 urkel_store_write_value(data_store_t *store, urkel_node_t *node) {
+  /* Write lock is held. */
   urkel_slab_t *slab = &store->slab;
   urkel_leaf_t *leaf = &node->u.leaf;
 
@@ -649,11 +674,13 @@ urkel_store_write_value(data_store_t *store, urkel_node_t *node) {
 
 int
 urkel_store_needs_flush(const data_store_t *store) {
+  /* Write lock is held. */
   return store->slab.data_len >= WRITE_BUFFER;
 }
 
 int
 urkel_store_flush(data_store_t *store) {
+  /* Write lock is held. */
   urkel_slab_t *slab = &store->slab;
   unsigned char *data = slab->data;
   size_t i = 0;
@@ -687,6 +714,7 @@ static void
 urkel_store_write_meta(data_store_t *store,
                        urkel_meta_t *state,
                        urkel_node_t *root) {
+  /* Write lock is held. */
   static const unsigned char padding[META_SIZE] = {0};
   urkel_slab_t *slab = &store->slab;
   unsigned char raw[META_SIZE];
@@ -714,6 +742,7 @@ urkel_store_write_meta(data_store_t *store,
 
 int
 urkel_store_commit(data_store_t *store, urkel_node_t *root) {
+  /* Write lock is held. */
   urkel_meta_t state;
 
   urkel_store_write_meta(store, &state, root);
@@ -730,6 +759,8 @@ urkel_store_commit(data_store_t *store, urkel_node_t *root) {
 
   if (state.root_node.type != URKEL_NODE_NULL)
     urkel_cache_insert(&store->cache, &state.root_node);
+
+  urkel_store_evict(store);
 
   return 1;
 }

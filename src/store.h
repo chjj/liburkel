@@ -44,7 +44,7 @@ urkel_store_retrieve(urkel_store_t *store,
                      size_t *size);
 
 urkel_node_t *
-urkel_store_resolve(urkel_store_t *store, urkel_node_t *node);
+urkel_store_resolve(urkel_store_t *store, const urkel_node_t *node);
 
 void
 urkel_store_write_node(urkel_store_t *store, urkel_node_t *node);
