@@ -55,7 +55,7 @@ typedef struct urkel_iter_s {
  * Error Number
  */
 
-#ifdef URKEL_TLS
+#if defined(URKEL_TLS)
 static URKEL_TLS int __urkel_errno;
 
 int *
