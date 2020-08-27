@@ -16,6 +16,7 @@ int
 main(void) {
   urkel_kv_t *kvs = urkel_kv_generate(URKEL_ITERATIONS);
   unsigned char old_root[32];
+  unsigned char old_root2[32];
   urkel_tx_t *tx;
   urkel_t *db;
   size_t i;
@@ -143,8 +144,10 @@ main(void) {
       ASSERT(!urkel_tx_has(tx, key));
     }
 
-    if (i == URKEL_ITERATIONS / 2)
+    if (i == URKEL_ITERATIONS / 2) {
       ASSERT(urkel_tx_commit(tx));
+      urkel_tx_root(tx, old_root2);
+    }
   }
 
   {
@@ -241,6 +244,22 @@ main(void) {
 
   urkel_tx_destroy(tx);
   urkel_close(db);
+
+  {
+    unsigned char new_root[32];
+
+    ASSERT(urkel__corrupt(URKEL_PATH));
+
+    db = urkel_open(URKEL_PATH);
+
+    ASSERT(db != NULL);
+
+    urkel_root(db, new_root);
+
+    urkel_close(db);
+
+    ASSERT(memcmp(new_root, old_root2, 32) == 0);
+  }
 
   ASSERT(urkel_destroy(URKEL_PATH));
 

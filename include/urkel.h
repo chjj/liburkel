@@ -80,6 +80,9 @@ urkel_close(urkel_t *tree);
 URKEL_EXTERN int
 urkel_destroy(const char *prefix);
 
+URKEL_EXTERN int
+urkel__corrupt(const char *prefix);
+
 URKEL_EXTERN void
 urkel_hash(unsigned char *hash, const void *data, size_t size);
 

@@ -636,6 +636,11 @@ urkel_destroy(const char *prefix) {
   return urkel_store_destroy(prefix);
 }
 
+int
+urkel__corrupt(const char *prefix) {
+  return urkel_store__corrupt(prefix);
+}
+
 void
 urkel_hash(unsigned char *hash, const void *data, size_t size) {
   urkel_hash_key(hash, data, size);

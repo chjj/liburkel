@@ -1207,3 +1207,60 @@ fail:
 
   return ret;
 }
+
+int
+urkel_store__corrupt(const char *prefix) {
+  char *prefix_ = urkel_path_resolve(prefix);
+  char path[URKEL_PATH_MAX + 1];
+  size_t path_len;
+  urkel_dirent_t **list;
+  urkel_stat_t st;
+  size_t i, count;
+  int found = 0;
+  int ret = 0;
+
+  if (prefix_ == NULL)
+    return 0;
+
+  path_len = strlen(prefix_);
+
+  if (path_len + 10 > URKEL_PATH_MAX)
+    goto fail;
+
+  memcpy(path, prefix_, path_len + 1);
+
+  path[path_len++] = URKEL_PATH_SEP;
+
+  if (!urkel_fs_scandir(prefix_, &list, &count))
+    goto fail;
+
+  for (i = 0; i < count; i++) {
+    const char *name = list[i]->d_name;
+
+    if (urkel_parse_u32(NULL, name)) {
+      memcpy(path + path_len, name, strlen(name) + 1);
+      found = 1;
+    }
+
+    free(list[i]);
+  }
+
+  free(list);
+
+  if (!found)
+    goto fail;
+
+  if (!urkel_fs_stat(path, &st))
+    goto fail;
+
+  if (st.st_size == 0)
+    goto fail;
+
+  if (!urkel_fs_truncate(path, st.st_size - 1))
+    goto fail;
+
+  ret = 1;
+fail:
+  free(prefix_);
+  return ret;
+}
