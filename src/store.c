@@ -983,7 +983,7 @@ urkel_store_find_meta(const data_store_t *store,
   int ret = 0;
   int fd;
 
-  fd = urkel_fs_open(path, URKEL_O_RDONLY, 0);
+  fd = urkel_fs_open(path, URKEL_O_RDWR | URKEL_O_RANDOM, 0);
 
   if (fd == -1)
     return 0;
@@ -1154,7 +1154,7 @@ urkel_store_destroy(const char *prefix) {
   urkel_dirent_t **list;
   size_t i, count;
   int ret = 0;
-  int fd;
+  int fd = -1;
 
   if (prefix_ == NULL)
     return 0;
@@ -1175,19 +1175,13 @@ urkel_store_destroy(const char *prefix) {
   if (fd == -1)
     goto fail;
 
-  urkel_fs_close_lock(fd);
-
   if (!urkel_fs_scandir(prefix_, &list, &count))
     goto fail;
 
   for (i = 0; i < count; i++) {
     const char *name = list[i]->d_name;
 
-    int match = urkel_parse_u32(NULL, name)
-             || strcmp(name, "meta") == 0
-             || strcmp(name, "lock") == 0;
-
-    if (match) {
+    if (urkel_parse_u32(NULL, name) || strcmp(name, "meta") == 0) {
       memcpy(path + path_len, name, strlen(name) + 1);
       urkel_fs_unlink(path);
     }
@@ -1197,8 +1191,19 @@ urkel_store_destroy(const char *prefix) {
 
   free(list);
 
-  ret = urkel_fs_rmdir(prefix_);
+  ret = 1;
 fail:
+  if (fd != -1) {
+    memcpy(path + path_len, "lock", 5);
+
+    urkel_fs_close_lock(fd);
+    urkel_fs_unlink(path);
+  }
+
+  if (ret)
+    ret = urkel_fs_rmdir(prefix_);
+
   free(prefix_);
+
   return ret;
 }
