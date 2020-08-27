@@ -467,7 +467,7 @@ urkel_tree_prove(tree_db_t *tree,
 
         memcpy(proof->key, key, URKEL_KEY_SIZE);
 
-        urkel_hash_key(proof->hash, value, size);
+        urkel_hash_raw(proof->hash, value, size);
       }
 
       return 1;

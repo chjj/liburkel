@@ -37,6 +37,9 @@ urkel_hash_value(unsigned char *out,
 void
 urkel_hash_key(unsigned char *out, const void *key, size_t size);
 
+void
+urkel_hash_raw(unsigned char *out, const void *key, size_t size);
+
 /*
  * String Functions
  */
@@ -52,7 +55,7 @@ urkel_serialize_u32(char *out, uint32_t num);
  */
 
 void
-urkel_random_key(unsigned char *key);
+urkel_random_bytes(void *dst, size_t len);
 
 unsigned char *
 urkel_checksum(unsigned char *out,

@@ -85,6 +85,14 @@ urkel_hash_key(unsigned char *out, const void *key, size_t size) {
   urkel_blake2b_final(&ctx, out);
 }
 
+void
+urkel_hash_raw(unsigned char *out, const void *key, size_t size) {
+  urkel_blake2b_t ctx;
+  urkel_blake2b_init(&ctx, URKEL_HASH_SIZE, NULL, 0);
+  urkel_blake2b_update(&ctx, key, size);
+  urkel_blake2b_final(&ctx, out);
+}
+
 /*
  * String Functions
  */
@@ -140,19 +148,22 @@ urkel_serialize_u32(char *out, uint32_t num) {
  */
 
 void
-urkel_random_key(unsigned char *key) {
-  /* Does not need to be cryptographically
-     strong, just needs to be _different_
-     from everyone else to make an attack
-     not worth trying. Predicting one user's
-     key does nothing to help an attacker. */
-  if (!urkel_sys_random(key, 32)) {
+urkel_random_bytes(void *dst, size_t len) {
+  CHECK(len == URKEL_HASH_SIZE);
+
+  if (!urkel_sys_random(dst, URKEL_HASH_SIZE)) {
+    /* Does not need to be cryptographically
+       strong, just needs to be _different_
+       from everyone else to make an attack
+       not worth trying. Predicting one user's
+       key does nothing to help an attacker. */
     urkel_timespec_t ts;
 
     memset(&ts, 0, sizeof(ts));
 
     urkel_time_get(&ts);
-    urkel_hash_key(key, &ts, sizeof(ts));
+
+    urkel_hash_raw(dst, &ts, sizeof(ts));
   }
 }
 
@@ -162,7 +173,7 @@ urkel_checksum(unsigned char *out,
                size_t len,
                const unsigned char *key) {
   urkel_blake2b_t ctx;
-  urkel_blake2b_init(&ctx, 20, key, 32);
+  urkel_blake2b_init(&ctx, 20, key, URKEL_HASH_SIZE);
   urkel_blake2b_update(&ctx, data, len);
   urkel_blake2b_final(&ctx, out);
   return out + 20;

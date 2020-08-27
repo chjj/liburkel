@@ -28,7 +28,6 @@
 #define WRITE_BUFFER (64 << 20)
 #define READ_BUFFER (1 << 20)
 #define SLAB_SIZE (READ_BUFFER - (READ_BUFFER % META_SIZE))
-#define KEY_SIZE 32
 #define WRITE_FLAGS (URKEL_O_RDWR | URKEL_O_CREAT | URKEL_O_APPEND \
                    | URKEL_O_RANDOM | URKEL_O_MMAP)
 #define READ_FLAGS (URKEL_O_RDONLY | URKEL_O_RANDOM | URKEL_O_MMAP)
@@ -72,13 +71,19 @@ typedef struct urkel_cache_s {
   khash_t(nodes) *map;
 } urkel_cache_t;
 
+typedef struct urkel_rng_s {
+  uint32_t state[(URKEL_HASH_SIZE + 3) / 4];
+  size_t pos;
+} urkel_rng_t;
+
 typedef struct urkel_store_s {
   char prefix[URKEL_PATH_MAX + 1];
   size_t prefix_len;
-  unsigned char key[KEY_SIZE];
+  unsigned char key[URKEL_HASH_SIZE];
   urkel_slab_t slab;
   urkel_filemap_t files;
   urkel_cache_t cache;
+  urkel_rng_t rng;
   urkel_meta_t state;
   urkel_meta_t last_meta;
   int lock_fd;
@@ -372,6 +377,32 @@ urkel_cache_insert(urkel_cache_t *cache, const urkel_node_t *node) {
 }
 
 /*
+ * RNG
+ */
+
+static void
+urkel_rng_init(urkel_rng_t *rng) {
+  urkel_random_bytes(rng->state, URKEL_HASH_SIZE);
+  rng->pos = 0;
+}
+
+static void
+urkel_rng_uninit(urkel_rng_t *rng) {
+  (void)rng;
+}
+
+static uint32_t
+urkel_rng_rand(urkel_rng_t *rng) {
+  if ((rng->pos % (URKEL_HASH_SIZE / 4)) == 0) {
+    urkel_hash_raw((unsigned char *)rng->state,
+                   rng->state, URKEL_HASH_SIZE);
+    rng->pos = 0;
+  }
+
+  return rng->state[rng->pos++];
+}
+
+/*
  * Data Store
  */
 
@@ -403,11 +434,12 @@ urkel_store_close_file(data_store_t *, uint32_t);
 static void
 urkel_store_evict(data_store_t *store) {
   /* Write lock is held. */
-  while (store->files.len > MAX_OPEN_FILES) {
-    size_t tries = (size_t)rand() % (store->files.size - 1);
+  while (store->files.size > MAX_OPEN_FILES) {
+    size_t num = urkel_rng_rand(&store->rng);
+    size_t tries = num % (store->files.size - 1);
     size_t i;
 
-    for (i = 0; i < store->files.len; i++) {
+    for (i = 1; i < store->files.len; i++) {
       if (store->files.items[i] == NULL)
         continue;
 
@@ -888,11 +920,11 @@ urkel_store_init_meta(data_store_t *store) {
   urkel_store_path(store, path, "meta");
 
   if (urkel_fs_exists(path))
-    return urkel_fs_read_file(path, store->key, KEY_SIZE);
+    return urkel_fs_read_file(path, store->key, URKEL_HASH_SIZE);
 
-  urkel_random_key(store->key);
+  urkel_random_bytes(store->key, URKEL_HASH_SIZE);
 
-  return urkel_fs_write_file(path, 0640, store->key, KEY_SIZE);
+  return urkel_fs_write_file(path, 0640, store->key, URKEL_HASH_SIZE);
 }
 
 static int
@@ -1058,6 +1090,7 @@ urkel_store_init(data_store_t *store, const char *prefix) {
   urkel_slab_init(&store->slab);
   urkel_filemap_init(&store->files);
   urkel_cache_init(&store->cache);
+  urkel_rng_init(&store->rng);
 
   store->index = index;
   store->current = urkel_store_open_file(store, index, WRITE_FLAGS);
@@ -1088,6 +1121,7 @@ urkel_store_uninit(data_store_t *store) {
   urkel_slab_uninit(&store->slab);
   urkel_filemap_uninit(&store->files);
   urkel_cache_uninit(&store->cache);
+  urkel_rng_uninit(&store->rng);
   urkel_fs_close_lock(store->lock_fd);
   urkel_fs_unlink(path);
 
