@@ -446,6 +446,7 @@ urkel_tree_prove(tree_db_t *tree,
     }
 
     case URKEL_NODE_LEAF: {
+      urkel_leaf_t *leaf = &node->u.leaf;
       unsigned char value[URKEL_VALUE_SIZE];
       size_t size;
 
@@ -465,7 +466,7 @@ urkel_tree_prove(tree_db_t *tree,
         proof->type = URKEL_TYPE_COLLISION;
         proof->depth = depth;
 
-        memcpy(proof->key, key, URKEL_KEY_SIZE);
+        memcpy(proof->key, leaf->key, URKEL_KEY_SIZE);
 
         urkel_hash_raw(proof->hash, value, size);
       }
@@ -785,6 +786,9 @@ urkel_verify(unsigned char **value,
   urkel_proof_t proof;
   int ret;
 
+  *value = NULL;
+  *value_len = 0;
+
   if (!urkel_proof_read(&proof, proof_raw, proof_len)) {
     urkel_errno = URKEL_EUNKNOWN;
     return 0;
@@ -792,14 +796,12 @@ urkel_verify(unsigned char **value,
 
   ret = urkel_proof_verify(&proof, root, key);
 
-  if (ret == 0 && proof.size > 0) {
-    *value = checked_malloc(proof.size);
+  if (ret == 0) {
+    *value = checked_malloc(proof.size + 1);
     *value_len = proof.size;
 
-    memcpy(*value, proof.value, proof.size);
-  } else {
-    *value = NULL;
-    *value_len = 0;
+    if (proof.size > 0)
+      memcpy(*value, proof.value, proof.size);
   }
 
   urkel_proof_uninit(&proof);

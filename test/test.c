@@ -113,9 +113,9 @@ main(void) {
     urkel_iter_destroy(iter);
   }
 
-  {
+  for (i = 0; i < URKEL_ITERATIONS; i++) {
     unsigned char root[32];
-    unsigned char *key = kvs[0].key;
+    unsigned char *key = kvs[i].key;
     unsigned char *proof_raw;
     size_t proof_len;
     unsigned char *value;
@@ -127,7 +127,7 @@ main(void) {
     ASSERT(urkel_verify(&value, &value_len, proof_raw, proof_len, root, key));
 
     ASSERT(value_len == 64);
-    ASSERT(memcmp(value, kvs[0].value, 64) == 0);
+    ASSERT(memcmp(value, kvs[i].value, 64) == 0);
 
     free(proof_raw);
     free(value);
@@ -172,9 +172,9 @@ main(void) {
     urkel_iter_destroy(iter);
   }
 
-  {
+  for (i = 0; i < URKEL_ITERATIONS; i++) {
     unsigned char root[32];
-    unsigned char *key = kvs[0].key;
+    unsigned char *key = kvs[i].key;
     unsigned char *proof_raw;
     size_t proof_len;
     unsigned char *value;
@@ -185,8 +185,13 @@ main(void) {
     ASSERT(urkel_tx_prove(tx, &proof_raw, &proof_len, key));
     ASSERT(urkel_verify(&value, &value_len, proof_raw, proof_len, root, key));
 
-    ASSERT(value_len == 64);
-    ASSERT(memcmp(value, kvs[0].value, 64) == 0);
+    if (i & 1) {
+      ASSERT(value_len == 0);
+      ASSERT(value != NULL);
+    } else {
+      ASSERT(value_len == 64);
+      ASSERT(memcmp(value, kvs[i].value, 64) == 0);
+    }
 
     free(proof_raw);
     free(value);

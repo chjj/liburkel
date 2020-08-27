@@ -59,7 +59,7 @@ urkel_proof_size(const urkel_proof_t *proof) {
   for (i = 0; i < proof->nodes_len; i++) {
     const urkel_proof_node_t *node = proof->nodes[i];
 
-    if (node->prefix.size != 0)
+    if (node->prefix.size > 0)
       size += urkel_bits_size(&node->prefix);
 
     size += URKEL_HASH_SIZE;
@@ -88,6 +88,7 @@ urkel_proof_size(const urkel_proof_t *proof) {
 
 unsigned char *
 urkel_proof_write(const urkel_proof_t *proof, unsigned char *data) {
+  static const unsigned char padding[URKEL_KEY_SIZE] = {0};
   size_t count = proof->nodes_len;
   size_t bsize = (count + 7) / 8;
   uint16_t field = (proof->type << 14) | proof->depth;
@@ -96,20 +97,17 @@ urkel_proof_write(const urkel_proof_t *proof, unsigned char *data) {
 
   data = urkel_write16(data, field);
   data = urkel_write16(data, count);
-
-  memset(data, 0, bsize);
-  data += bsize;
+  data = urkel_write(data, padding, bsize);
 
   for (i = 0; i < proof->nodes_len; i++) {
     const urkel_proof_node_t *node = proof->nodes[i];
 
-    if (node->prefix.size != 0) {
+    if (node->prefix.size > 0) {
       urkel_set_bit(bits, i, 1);
       data = urkel_bits_write(&node->prefix, data);
     }
 
-    memcpy(data, node->hash, URKEL_HASH_SIZE);
-    data += URKEL_HASH_SIZE;
+    data = urkel_write(data, node->hash, URKEL_HASH_SIZE);
   }
 
   switch (proof->type) {
@@ -119,34 +117,20 @@ urkel_proof_write(const urkel_proof_t *proof, unsigned char *data) {
 
     case URKEL_TYPE_SHORT: {
       data = urkel_bits_write(&proof->prefix, data);
-
-      memcpy(data, proof->left, URKEL_HASH_SIZE);
-      data += URKEL_HASH_SIZE;
-
-      memcpy(data, proof->right, URKEL_HASH_SIZE);
-      data += URKEL_HASH_SIZE;
-
+      data = urkel_write(data, proof->left, URKEL_HASH_SIZE);
+      data = urkel_write(data, proof->right, URKEL_HASH_SIZE);
       break;
     }
 
     case URKEL_TYPE_COLLISION: {
-      memcpy(data, proof->key, URKEL_KEY_SIZE);
-      data += URKEL_KEY_SIZE;
-
-      memcpy(data, proof->hash, URKEL_HASH_SIZE);
-      data += URKEL_HASH_SIZE;
-
+      data = urkel_write(data, proof->key, URKEL_KEY_SIZE);
+      data = urkel_write(data, proof->hash, URKEL_HASH_SIZE);
       break;
     }
 
     case URKEL_TYPE_EXISTS: {
       data = urkel_write16(data, proof->size);
-
-      if (proof->size > 0)
-        memcpy(data, proof->value, proof->size);
-
-      data += proof->size;
-
+      data = urkel_write(data, proof->value, proof->size);
       break;
     }
 
@@ -212,8 +196,7 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
     if (len < URKEL_HASH_SIZE)
       return 0;
 
-    memcpy(hash, data, URKEL_HASH_SIZE);
-
+    urkel_read(hash, data, URKEL_HASH_SIZE);
     data += URKEL_HASH_SIZE;
     len -= URKEL_HASH_SIZE;
 
@@ -239,11 +222,13 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
       if (len < URKEL_HASH_SIZE * 2)
         return 0;
 
-      memcpy(proof->left, data, URKEL_HASH_SIZE);
-      memcpy(proof->right, data, URKEL_HASH_SIZE);
+      urkel_read(proof->left, data, URKEL_HASH_SIZE);
+      data += URKEL_HASH_SIZE;
+      len -= URKEL_HASH_SIZE;
 
-      data += URKEL_HASH_SIZE * 2;
-      len -= URKEL_HASH_SIZE * 2;
+      urkel_read(proof->right, data, URKEL_HASH_SIZE);
+      data += URKEL_HASH_SIZE;
+      len -= URKEL_HASH_SIZE;
 
       break;
     }
@@ -252,11 +237,13 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
       if (len < URKEL_KEY_SIZE + URKEL_HASH_SIZE)
         return 0;
 
-      memcpy(proof->key, data, URKEL_KEY_SIZE);
-      memcpy(proof->hash, data, URKEL_HASH_SIZE);
+      urkel_read(proof->key, data, URKEL_KEY_SIZE);
+      data += URKEL_KEY_SIZE;
+      len -= URKEL_KEY_SIZE;
 
-      data += URKEL_KEY_SIZE + URKEL_HASH_SIZE;
-      len -= URKEL_KEY_SIZE + URKEL_HASH_SIZE;
+      urkel_read(proof->hash, data, URKEL_HASH_SIZE);
+      data += URKEL_HASH_SIZE;
+      len -= URKEL_HASH_SIZE;
 
       break;
     }
@@ -272,9 +259,8 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
       if (len < size)
         return 0;
 
-      if (size > 0)
-        memcpy(proof->value, data, size);
-
+      urkel_read(proof->value, data, size);
+      data += size;
       len -= size;
 
       proof->size = size;

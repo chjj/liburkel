@@ -8,6 +8,7 @@
 #include <string.h>
 #include "bits.h"
 #include "internal.h"
+#include "util.h"
 
 /*
  * Bits
@@ -21,7 +22,7 @@ urkel_bits_init(urkel_bits_t *bits, size_t size) {
 
 static size_t
 urkel_bits__count(const urkel_bits_t *bits,
-                  size_t index,
+                  unsigned int index,
                   const unsigned char *key,
                   unsigned int depth) {
   size_t x = bits->size - index;
@@ -112,6 +113,8 @@ size_t
 urkel_bits_size(const urkel_bits_t *bits) {
   size_t size = 0;
 
+  CHECK(bits->size <= URKEL_KEY_BITS);
+
   if (bits->size >= 0x80)
     size += 1;
 
@@ -125,13 +128,13 @@ unsigned char *
 urkel_bits_write(const urkel_bits_t *bits, unsigned char *data) {
   size_t bytes = (bits->size + 7) / 8;
 
+  CHECK(bits->size <= URKEL_KEY_BITS);
+
   if (bits->size >= 0x80)
-    *data++ = 0x80 | (bits->size >> 8);
+    data = urkel_write8(data, 0x80 | (bits->size >> 8));
 
-  *data++ = bits->size;
-
-  memcpy(data, bits->data, bytes);
-  data += bytes;
+  data = urkel_write8(data, bits->size);
+  data = urkel_write(data, bits->data, bytes);
 
   return data;
 }
@@ -145,7 +148,7 @@ urkel_bits_read(urkel_bits_t *bits, const unsigned char *data, size_t len) {
   if (len < 1)
     return 0;
 
-  size = *data;
+  size = urkel_read8(data);
   data += 1;
   len -= 1;
 
@@ -155,7 +158,7 @@ urkel_bits_read(urkel_bits_t *bits, const unsigned char *data, size_t len) {
 
     size &= ~0x80;
     size <<= 8;
-    size |= *data;
+    size |= urkel_read8(data);
 
     if (size < 0x80)
       return 0;
@@ -164,6 +167,9 @@ urkel_bits_read(urkel_bits_t *bits, const unsigned char *data, size_t len) {
     len -= 1;
   }
 
+  if (size > URKEL_KEY_BITS)
+    return 0;
+
   bytes = (size + 7) / 8;
 
   if (len < bytes)
@@ -171,7 +177,7 @@ urkel_bits_read(urkel_bits_t *bits, const unsigned char *data, size_t len) {
 
   bits->size = size;
 
-  memcpy(bits->data, data, bytes);
+  urkel_read(bits->data, data, bytes);
 
   return 1;
 }
