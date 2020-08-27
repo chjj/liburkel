@@ -25,7 +25,7 @@
  */
 
 static URKEL_INLINE uint64_t
-rotr64(uint64_t w, unsigned int c) {
+urkel_rotr64(uint64_t w, unsigned int c) {
   return (w >> c) | (w << (64 - c));
 }
 
@@ -113,15 +113,15 @@ urkel_blake2b_compress(urkel_blake2b_t *ctx,
   v[14] = urkel_blake2b_iv[6] ^ f0;
   v[15] = urkel_blake2b_iv[7];
 
-#define G(r, i, a, b, c, d) do {              \
+#define G(r, i, a, b, c, d) do {                    \
   a = a + b + m[urkel_blake2b_sigma[r][2 * i + 0]]; \
-  d = rotr64(d ^ a, 32);                      \
-  c = c + d;                                  \
-  b = rotr64(b ^ c, 24);                      \
+  d = urkel_rotr64(d ^ a, 32);                      \
+  c = c + d;                                        \
+  b = urkel_rotr64(b ^ c, 24);                      \
   a = a + b + m[urkel_blake2b_sigma[r][2 * i + 1]]; \
-  d = rotr64(d ^ a, 16);                      \
-  c = c + d;                                  \
-  b = rotr64(b ^ c, 63);                      \
+  d = urkel_rotr64(d ^ a, 16);                      \
+  c = c + d;                                        \
+  b = urkel_rotr64(b ^ c, 63);                      \
 } while (0)
 
 #define ROUND(r) do {                  \
