@@ -179,7 +179,8 @@ bench_urkel(void) {
     unsigned char *key = kvs[0].key;
     unsigned char *proof_raw;
     size_t proof_len;
-    unsigned char *value;
+    int exists;
+    unsigned char value[1024];
     size_t value_len;
 
     urkel_tx_root(tx, root);
@@ -189,11 +190,12 @@ bench_urkel(void) {
     bench_start(&tv, "verify");
 
     for (i = 0; i < URKEL_ITERATIONS; i++) {
-      ASSERT(urkel_verify(&value, &value_len, proof_raw, proof_len, root, key));
+      ASSERT(urkel_verify(&exists, value, &value_len,
+                          proof_raw, proof_len, key, root));
+
+      ASSERT(exists == 1);
       ASSERT(value_len == 64);
       ASSERT(memcmp(value, kvs[0].value, 64) == 0);
-
-      free(value);
     }
 
     bench_end(&tv, i);

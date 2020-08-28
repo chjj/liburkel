@@ -681,8 +681,9 @@ int
 urkel_get(tree_db_t *tree,
           unsigned char *value,
           size_t *size,
-          const unsigned char *key) {
-  tree_tx_t *tx = urkel_tx_create(tree, NULL);
+          const unsigned char *key,
+          const unsigned char *root) {
+  tree_tx_t *tx = urkel_tx_create(tree, root);
   int ret;
 
   if (tx == NULL) {
@@ -698,8 +699,10 @@ urkel_get(tree_db_t *tree,
 }
 
 int
-urkel_has(tree_db_t *tree, const unsigned char *key) {
-  tree_tx_t *tx = urkel_tx_create(tree, NULL);
+urkel_has(tree_db_t *tree,
+          const unsigned char *key,
+          const unsigned char *root) {
+  tree_tx_t *tx = urkel_tx_create(tree, root);
   int ret;
 
   if (tx == NULL)
@@ -759,8 +762,9 @@ int
 urkel_prove(tree_db_t *tree,
             unsigned char **proof_raw,
             size_t *proof_len,
-            const unsigned char *key) {
-  tree_tx_t *tx = urkel_tx_create(tree, NULL);
+            const unsigned char *key,
+            const unsigned char *root) {
+  tree_tx_t *tx = urkel_tx_create(tree, root);
   int ret;
 
   if (tx == NULL) {
@@ -777,31 +781,38 @@ urkel_prove(tree_db_t *tree,
 }
 
 int
-urkel_verify(unsigned char **value,
+urkel_verify(int *exists,
+             unsigned char *value,
              size_t *value_len,
              const unsigned char *proof_raw,
              size_t proof_len,
-             const unsigned char *root,
-             const unsigned char *key) {
+             const unsigned char *key,
+             const unsigned char *root) {
   urkel_proof_t proof;
   int ret;
 
-  *value = NULL;
+  *exists = 0;
   *value_len = 0;
+
+  if (root == NULL) {
+    urkel_errno = URKEL_EUNKNOWN;
+    return 0;
+  }
 
   if (!urkel_proof_read(&proof, proof_raw, proof_len)) {
     urkel_errno = URKEL_EUNKNOWN;
     return 0;
   }
 
-  ret = urkel_proof_verify(&proof, root, key);
+  ret = urkel_proof_verify(&proof, key, root);
 
-  if (ret == 0) {
-    *value = checked_malloc(proof.size + 1);
-    *value_len = proof.size;
+  if (ret == 0 && proof.type == URKEL_TYPE_EXISTS) {
+    *exists = 1;
 
     if (proof.size > 0)
-      memcpy(*value, proof.value, proof.size);
+      memcpy(value, proof.value, proof.size);
+
+    *value_len = proof.size;
   }
 
   urkel_proof_uninit(&proof);
@@ -812,8 +823,8 @@ urkel_verify(unsigned char **value,
 }
 
 tree_iter_t *
-urkel_iterate(tree_db_t *tree) {
-  tree_tx_t *tx = urkel_tx_create(tree, NULL);
+urkel_iterate(tree_db_t *tree, const unsigned char *root) {
+  tree_tx_t *tx = urkel_tx_create(tree, root);
   tree_iter_t *iter;
 
   if (tx == NULL)

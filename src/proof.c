@@ -347,8 +347,8 @@ urkel_proof_is_sane(const urkel_proof_t *proof) {
 
 int
 urkel_proof_verify(const urkel_proof_t *proof,
-                   const unsigned char *root,
-                   const unsigned char *key) {
+                   const unsigned char *key,
+                   const unsigned char *root) {
   unsigned char next[URKEL_HASH_SIZE];
   unsigned int depth = proof->depth;
   size_t i = proof->nodes_len;

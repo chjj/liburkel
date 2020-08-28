@@ -79,7 +79,7 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len);
 
 int
 urkel_proof_verify(const urkel_proof_t *proof,
-                   const unsigned char *root,
-                   const unsigned char *key);
+                   const unsigned char *key,
+                   const unsigned char *root);
 
 #endif /* _URKEL_PROOF_H */

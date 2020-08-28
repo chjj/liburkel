@@ -118,19 +118,21 @@ main(void) {
     unsigned char *key = kvs[i].key;
     unsigned char *proof_raw;
     size_t proof_len;
-    unsigned char *value;
+    int exists;
+    unsigned char value[1024];
     size_t value_len;
 
     urkel_tx_root(tx, root);
 
     ASSERT(urkel_tx_prove(tx, &proof_raw, &proof_len, key));
-    ASSERT(urkel_verify(&value, &value_len, proof_raw, proof_len, root, key));
+    ASSERT(urkel_verify(&exists, value, &value_len,
+                        proof_raw, proof_len, key, root));
 
+    ASSERT(exists == 1);
     ASSERT(value_len == 64);
     ASSERT(memcmp(value, kvs[i].value, 64) == 0);
 
     free(proof_raw);
-    free(value);
   }
 
   urkel_root(db, old_root);
@@ -177,24 +179,25 @@ main(void) {
     unsigned char *key = kvs[i].key;
     unsigned char *proof_raw;
     size_t proof_len;
-    unsigned char *value;
+    int exists;
+    unsigned char value[1024];
     size_t value_len;
 
     urkel_tx_root(tx, root);
 
     ASSERT(urkel_tx_prove(tx, &proof_raw, &proof_len, key));
-    ASSERT(urkel_verify(&value, &value_len, proof_raw, proof_len, root, key));
+    ASSERT(urkel_verify(&exists, value, &value_len,
+                        proof_raw, proof_len, key, root));
 
     if (i & 1) {
-      ASSERT(value_len == 0);
-      ASSERT(value != NULL);
+      ASSERT(exists == 0);
     } else {
+      ASSERT(exists == 1);
       ASSERT(value_len == 64);
       ASSERT(memcmp(value, kvs[i].value, 64) == 0);
     }
 
     free(proof_raw);
-    free(value);
   }
 
   ASSERT(urkel_tx_commit(tx));

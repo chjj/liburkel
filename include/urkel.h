@@ -96,10 +96,13 @@ URKEL_EXTERN int
 urkel_get(urkel_t *tree,
           unsigned char *value,
           size_t *size,
-          const unsigned char *key);
+          const unsigned char *key,
+          const unsigned char *root);
 
 URKEL_EXTERN int
-urkel_has(urkel_t *tree, const unsigned char *key);
+urkel_has(urkel_t *tree,
+          const unsigned char *key,
+          const unsigned char *root);
 
 URKEL_EXTERN int
 urkel_insert(urkel_t *tree,
@@ -114,18 +117,20 @@ URKEL_EXTERN int
 urkel_prove(urkel_t *tree,
             unsigned char **proof_raw,
             size_t *proof_len,
-            const unsigned char *key);
+            const unsigned char *key,
+            const unsigned char *root);
 
 URKEL_EXTERN int
-urkel_verify(unsigned char **value,
+urkel_verify(int *exists,
+             unsigned char *value,
              size_t *value_len,
              const unsigned char *proof_raw,
              size_t proof_len,
-             const unsigned char *root,
-             const unsigned char *key);
+             const unsigned char *key,
+             const unsigned char *root);
 
 URKEL_EXTERN urkel_iter_t *
-urkel_iterate(urkel_t *tree);
+urkel_iterate(urkel_t *tree, const unsigned char *root);
 
 /*
  * Transaction
