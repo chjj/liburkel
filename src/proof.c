@@ -23,7 +23,7 @@ urkel_proof_init(urkel_proof_t *proof) {
 }
 
 void
-urkel_proof_uninit(urkel_proof_t *proof) {
+urkel_proof_clear(urkel_proof_t *proof) {
   size_t i;
 
   for (i = 0; i < proof->nodes_len; i++)
@@ -354,7 +354,7 @@ urkel_proof_verify(const urkel_proof_t *proof,
   size_t i = proof->nodes_len;
 
   if (!urkel_proof_is_sane(proof))
-    return URKEL_EUNKNOWN;
+    return URKEL_EINVAL;
 
   /* Re-create the leaf. */
   switch (proof->type) {
@@ -387,7 +387,7 @@ urkel_proof_verify(const urkel_proof_t *proof,
     }
 
     default: {
-      return URKEL_EUNKNOWN;
+      return URKEL_EINVAL;
     }
   }
 

@@ -795,12 +795,12 @@ urkel_verify(int *exists,
   *value_len = 0;
 
   if (root == NULL) {
-    urkel_errno = URKEL_EUNKNOWN;
+    urkel_errno = URKEL_EINVAL;
     return 0;
   }
 
   if (!urkel_proof_read(&proof, proof_raw, proof_len)) {
-    urkel_errno = URKEL_EUNKNOWN;
+    urkel_errno = URKEL_EINVAL;
     return 0;
   }
 
@@ -815,7 +815,7 @@ urkel_verify(int *exists,
     *value_len = proof.size;
   }
 
-  urkel_proof_uninit(&proof);
+  urkel_proof_clear(&proof);
 
   urkel_errno = ret;
 
@@ -1060,7 +1060,7 @@ urkel_tx_prove(tree_tx_t *tx,
     *proof_raw = NULL;
   }
 
-  urkel_proof_uninit(&proof);
+  urkel_proof_clear(&proof);
 
   urkel_rwlock_rdunlock(tx->tree->lock);
 

@@ -156,7 +156,7 @@ urkel_slab_init(urkel_slab_t *slab) {
 }
 
 static void
-urkel_slab_uninit(urkel_slab_t *slab) {
+urkel_slab_clear(urkel_slab_t *slab) {
   if (slab->data != NULL)
     free(slab->data);
 
@@ -222,7 +222,7 @@ urkel_filemap_init(urkel_filemap_t *fm) {
 }
 
 static void
-urkel_filemap_uninit(urkel_filemap_t *fm) {
+urkel_filemap_clear(urkel_filemap_t *fm) {
   urkel_rwlock_wrlock(fm->lock);
 
   if (fm->items != NULL) {
@@ -314,7 +314,7 @@ urkel_cache_init(urkel_cache_t *cache) {
 }
 
 static void
-urkel_cache_uninit(urkel_cache_t *cache) {
+urkel_cache_clear(urkel_cache_t *cache) {
   khiter_t iter = kh_begin(cache->map);
   urkel_node_t *node;
 
@@ -387,7 +387,7 @@ urkel_rng_init(urkel_rng_t *rng) {
 }
 
 static void
-urkel_rng_uninit(urkel_rng_t *rng) {
+urkel_rng_clear(urkel_rng_t *rng) {
   (void)rng;
 }
 
@@ -597,7 +597,7 @@ urkel_store_read_root(data_store_t *store,
 
   urkel_node_hash(&node);
   urkel_node_to_hash(&node, out);
-  urkel_node_uninit(&node);
+  urkel_node_clear(&node);
 
   urkel_cache_insert(&store->cache, out);
 
@@ -865,7 +865,7 @@ urkel_store_has_history(data_store_t *store, const unsigned char *root_hash) {
 
   ret = urkel_store_read_history(store, &root, root_hash);
 
-  urkel_node_uninit(&root);
+  urkel_node_clear(&root);
 
   return ret;
 }
@@ -1061,7 +1061,7 @@ fail:
 }
 
 static void
-urkel_store_uninit(data_store_t *store);
+urkel_store_clear(data_store_t *store);
 
 static int
 urkel_store_init(data_store_t *store, const char *prefix) {
@@ -1096,7 +1096,7 @@ urkel_store_init(data_store_t *store, const char *prefix) {
   store->current = urkel_store_open_file(store, index, WRITE_FLAGS);
 
   if (store->current == NULL) {
-    urkel_store_uninit(store);
+    urkel_store_clear(store);
     return 0;
   }
 
@@ -1105,7 +1105,7 @@ urkel_store_init(data_store_t *store, const char *prefix) {
 
   if (!urkel_store_read_root(store, &store->state.root_node,
                                     &store->state.root_ptr)) {
-    urkel_store_uninit(store);
+    urkel_store_clear(store);
     return 0;
   }
 
@@ -1113,15 +1113,15 @@ urkel_store_init(data_store_t *store, const char *prefix) {
 }
 
 static void
-urkel_store_uninit(data_store_t *store) {
+urkel_store_clear(data_store_t *store) {
   char path[URKEL_PATH_MAX + 1];
 
   urkel_store_path(store, path, "lock");
 
-  urkel_slab_uninit(&store->slab);
-  urkel_filemap_uninit(&store->files);
-  urkel_cache_uninit(&store->cache);
-  urkel_rng_uninit(&store->rng);
+  urkel_slab_clear(&store->slab);
+  urkel_filemap_clear(&store->files);
+  urkel_cache_clear(&store->cache);
+  urkel_rng_clear(&store->rng);
   urkel_fs_close_lock(store->lock_fd);
   urkel_fs_unlink(path);
 
@@ -1142,7 +1142,7 @@ urkel_store_open(const char *prefix) {
 
 void
 urkel_store_close(data_store_t *store) {
-  urkel_store_uninit(store);
+  urkel_store_clear(store);
   free(store);
 }
 

@@ -91,7 +91,7 @@ void
 urkel_node_init(urkel_node_t *node, unsigned int type);
 
 void
-urkel_node_uninit(urkel_node_t *node);
+urkel_node_clear(urkel_node_t *node);
 
 void
 urkel_node_hashed(urkel_node_t *node, const unsigned char *hash);

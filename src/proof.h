@@ -61,7 +61,7 @@ void
 urkel_proof_init(urkel_proof_t *proof);
 
 void
-urkel_proof_uninit(urkel_proof_t *proof);
+urkel_proof_clear(urkel_proof_t *proof);
 
 void
 urkel_proof_push(urkel_proof_t *proof,

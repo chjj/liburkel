@@ -59,7 +59,7 @@ __urkel_get_errno(void);
 #define URKEL_ENEGDEPTH 4
 #define URKEL_EPATHMISMATCH 5
 #define URKEL_ETOODEEP 6
-#define URKEL_EUNKNOWN 7
+#define URKEL_EINVAL 7
 #define URKEL_ENOTFOUND 8
 #define URKEL_ECORRUPTION 9
 #define URKEL_ENOUPDATE 10

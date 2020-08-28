@@ -112,7 +112,7 @@ urkel_node_init(urkel_node_t *node, unsigned int type) {
 }
 
 void
-urkel_node_uninit(urkel_node_t *node) {
+urkel_node_clear(urkel_node_t *node) {
   switch (node->type) {
     case URKEL_NODE_NULL: {
       break;
