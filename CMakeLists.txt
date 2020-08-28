@@ -94,7 +94,8 @@ if(MSVC)
   append_c_compiler_flag(urkel_cflags /wd4146
                                       /wd4244
                                       /wd4267
-                                      /wd4334)
+                                      /wd4334
+                                      /wd4996)
 else()
   append_c_compiler_flag(urkel_cflags -pedantic
                                       -Wall
