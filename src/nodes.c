@@ -559,8 +559,9 @@ urkel_node_write(const urkel_node_t *node, unsigned char *data) {
       }
 
       CHECK(left->flags & URKEL_FLAG_WRITTEN);
-      CHECK(right->flags & URKEL_FLAG_WRITTEN);
       CHECK(left->flags & URKEL_FLAG_HASHED);
+
+      CHECK(right->flags & URKEL_FLAG_WRITTEN);
       CHECK(right->flags & URKEL_FLAG_HASHED);
 
       data = urkel_pointer_write(&left->ptr, data);

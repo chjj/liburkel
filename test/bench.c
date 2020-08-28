@@ -58,80 +58,40 @@ bench_urkel(void) {
 
   ASSERT(tx != NULL);
 
-  bench_start(&tv, "insert");
+  {
+    bench_start(&tv, "insert");
 
-  for (i = 0; i < URKEL_ITERATIONS; i++) {
-    unsigned char *key = kvs[i].key;
-    unsigned char *value = kvs[i].value;
+    for (i = 0; i < URKEL_ITERATIONS; i++) {
+      unsigned char *key = kvs[i].key;
+      unsigned char *value = kvs[i].value;
 
-    ASSERT(urkel_tx_insert(tx, key, value, 64));
+      ASSERT(urkel_tx_insert(tx, key, value, 64));
+    }
+
+    bench_end(&tv, i);
   }
 
-  bench_end(&tv, i);
+  {
+    bench_start(&tv, "get (cached)");
 
-  bench_start(&tv, "get (cached)");
+    for (i = 0; i < URKEL_ITERATIONS; i++) {
+      unsigned char *key = kvs[i].key;
+      unsigned char value[64];
+      size_t size;
 
-  for (i = 0; i < URKEL_ITERATIONS; i++) {
-    unsigned char *key = kvs[i].key;
-    unsigned char value[64];
-    size_t size;
+      ASSERT(urkel_tx_get(tx, value, &size, key));
+    }
 
-    ASSERT(urkel_tx_get(tx, value, &size, key));
+    bench_end(&tv, i);
   }
 
-  bench_end(&tv, i);
+  {
+    bench_start(&tv, "commit");
 
-  bench_start(&tv, "commit");
+    ASSERT(urkel_tx_commit(tx));
 
-  ASSERT(urkel_tx_commit(tx));
-
-  bench_end(&tv, 1);
-
-  urkel_tx_destroy(tx);
-  urkel_close(db);
-
-  db = urkel_open(URKEL_PATH);
-
-  ASSERT(db != NULL);
-
-  tx = urkel_tx_create(db, NULL);
-
-  ASSERT(tx != NULL);
-
-  bench_start(&tv, "get (uncached)");
-
-  for (i = 0; i < URKEL_ITERATIONS; i++) {
-    unsigned char *key = kvs[i].key;
-    unsigned char value[64];
-    size_t size;
-
-    ASSERT(urkel_tx_get(tx, value, &size, key));
+    bench_end(&tv, 1);
   }
-
-  bench_end(&tv, i);
-
-  bench_start(&tv, "remove");
-
-  for (i = 0; i < URKEL_ITERATIONS; i++) {
-    unsigned char *key = kvs[i].key;
-
-    if (i & 1)
-      ASSERT(urkel_tx_remove(tx, key));
-  }
-
-  bench_end(&tv, i);
-
-  bench_start(&tv, "commit");
-
-  ASSERT(urkel_tx_commit(tx));
-
-  bench_end(&tv, 1);
-
-  bench_start(&tv, "commit (nothing)");
-
-  ASSERT(urkel_tx_commit(tx));
-
-  bench_end(&tv, 1);
 
   urkel_tx_destroy(tx);
   urkel_close(db);
@@ -145,6 +105,76 @@ bench_urkel(void) {
   ASSERT(tx != NULL);
 
   {
+    bench_start(&tv, "get (uncached)");
+
+    for (i = 0; i < URKEL_ITERATIONS; i++) {
+      unsigned char *key = kvs[i].key;
+      unsigned char value[64];
+      size_t size;
+
+      ASSERT(urkel_tx_get(tx, value, &size, key));
+    }
+
+    bench_end(&tv, i);
+  }
+
+  {
+    bench_start(&tv, "remove");
+
+    for (i = 0; i < URKEL_ITERATIONS; i++) {
+      unsigned char *key = kvs[i].key;
+
+      if (i & 1)
+        ASSERT(urkel_tx_remove(tx, key));
+    }
+
+    bench_end(&tv, i);
+  }
+
+  {
+    bench_start(&tv, "commit");
+
+    ASSERT(urkel_tx_commit(tx));
+
+    bench_end(&tv, 1);
+  }
+
+  {
+    bench_start(&tv, "commit (nothing)");
+
+    ASSERT(urkel_tx_commit(tx));
+
+    bench_end(&tv, 1);
+  }
+
+  urkel_tx_destroy(tx);
+  urkel_close(db);
+
+  db = urkel_open(URKEL_PATH);
+
+  ASSERT(db != NULL);
+
+  tx = urkel_tx_create(db, NULL);
+
+  ASSERT(tx != NULL);
+
+  {
+    bench_start(&tv, "prove");
+
+    for (i = 0; i < URKEL_ITERATIONS; i++) {
+      unsigned char *key = kvs[i].key;
+      unsigned char *proof_raw;
+      size_t proof_len;
+
+      ASSERT(urkel_tx_prove(tx, &proof_raw, &proof_len, key));
+
+      free(proof_raw);
+    }
+
+    bench_end(&tv, i);
+  }
+
+  {
     unsigned char root[32];
     unsigned char *key = kvs[0].key;
     unsigned char *proof_raw;
@@ -153,16 +183,6 @@ bench_urkel(void) {
     size_t value_len;
 
     urkel_tx_root(tx, root);
-
-    bench_start(&tv, "prove");
-
-    for (i = 0; i < URKEL_ITERATIONS; i++) {
-      ASSERT(urkel_tx_prove(tx, &proof_raw, &proof_len, key));
-
-      free(proof_raw);
-    }
-
-    bench_end(&tv, i);
 
     ASSERT(urkel_tx_prove(tx, &proof_raw, &proof_len, key));
 
