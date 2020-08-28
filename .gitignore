@@ -49,6 +49,7 @@ urkel_bench
 urkel_ctgrind
 urkel_test
 urkel_test_static
+urkel
 urkel_bench.js
 urkel_test.js
 urkel.js
