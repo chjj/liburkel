@@ -102,6 +102,7 @@ else()
                                       -Wcast-align
                                       -Wno-implicit-fallthrough
                                       -Wno-long-long
+                                      -Wno-overlength-strings
                                       -Wshadow)
 endif()
 
@@ -178,6 +179,7 @@ set(urkel_sources src/bits.c
 
 set(urkel_includes ${PROJECT_SOURCE_DIR}/include)
 
+set(bin_sources src/urkel.c)
 set(test_sources test/test.c test/utils.c)
 set(bench_sources test/bench.c test/hrtime.c test/utils.c)
 
@@ -272,6 +274,10 @@ else()
   target_link_options(urkel_static INTERFACE ${urkel_ldflags})
   target_link_libraries(urkel_static INTERFACE Threads::Threads)
 
+  add_executable(urkel_bin ${bin_sources})
+  target_link_libraries(urkel_bin PRIVATE urkel)
+  set_target_properties(urkel_bin PROPERTIES OUTPUT_NAME urkel)
+
   if(UNIX)
     string(REPLACE ":" "." urkel_version "${URKEL_ABI_VERSION}")
     string(REGEX MATCH "^[0-9]+" urkel_soversion "${URKEL_ABI_VERSION}")
@@ -288,14 +294,16 @@ else()
     install(FILES README.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
     install(FILES ${PROJECT_BINARY_DIR}/liburkel.pc
             DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
-    install(TARGETS urkel LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-    install(TARGETS urkel_static ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    install(TARGETS urkel urkel_static urkel_bin
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   endif()
 
   if(WIN32)
     install(DIRECTORY include/ DESTINATION include)
     install(FILES LICENSE README.md DESTINATION .)
-    install(TARGETS urkel urkel_static
+    install(TARGETS urkel urkel_static urkel_bin
             RUNTIME DESTINATION lib/$<CONFIG>
             ARCHIVE DESTINATION lib/$<CONFIG>)
   endif()
