@@ -541,8 +541,8 @@ urkel_fs_lstat(const char *name, urkel_stat_t *out) {
 
 int
 urkel_fs_exists(const char *name) {
-  urkel_stat_t st;
-  return urkel_fs_lstat(name, &st);
+  struct stat st;
+  return lstat(name, &st) == 0;
 }
 
 int
@@ -645,7 +645,7 @@ urkel_fs_scandir(const char *name, urkel_dirent_t ***out, size_t *count) {
     if (item == NULL)
       goto fail;
 
-    if (i == size - 1) {
+    if (i == size) {
       size = (size * 3) / 2;
       list = realloc(list, size * sizeof(urkel_dirent_t *));
 
@@ -698,8 +698,6 @@ next:
     cookie = entry.d_next;
   }
 
-  list[i] = NULL;
-
   close(fd);
 
   qsort(list, i, sizeof(urkel_dirent_t *), urkel__dirent_compare);
@@ -745,10 +743,14 @@ fail:
     goto fail;
 
   for (;;) {
+    errno = 0;
     entry = readdir(dir);
 
-    if (entry == NULL)
+    if (entry == NULL) {
+      if (errno != 0)
+        goto fail;
       break;
+    }
 
     if (strcmp(entry->d_name, ".") == 0
         || strcmp(entry->d_name, "..") == 0) {
@@ -765,7 +767,7 @@ fail:
     if (len + 1 > sizeof(item->d_name))
       goto fail;
 
-    if (i == size - 1) {
+    if (i == size) {
       size = (size * 3) / 2;
       list = realloc(list, size * sizeof(urkel_dirent_t *));
 
@@ -822,8 +824,6 @@ fail:
     item = NULL;
   }
 
-  list[i] = NULL;
-
   closedir(dir);
 
   qsort(list, i, sizeof(urkel_dirent_t *), urkel__dirent_compare);
@@ -879,8 +879,7 @@ urkel_fs_seek(int fd, int64_t pos, int whence) {
       w = SEEK_END;
       break;
     default:
-      abort();
-      break;
+      return -1;
   }
 
   return lseek(fd, pos, w);

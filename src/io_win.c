@@ -359,6 +359,9 @@ urkel_fs_scandir(const char *name, urkel_dirent_t ***out, size_t *count) {
   if (len + 3 > URKEL_PATH_MAX)
     goto fail;
 
+  if (!(GetFileAttributesA(name) & FILE_ATTRIBUTE_DIRECTORY))
+    goto fail;
+
   list = malloc(size * sizeof(urkel_dirent_t *));
 
   if (list == NULL)
@@ -382,8 +385,12 @@ urkel_fs_scandir(const char *name, urkel_dirent_t ***out, size_t *count) {
 
   handle = FindFirstFileA(buf, &fdata);
 
-  if (handle == INVALID_HANDLE_VALUE)
-    goto fail;
+  if (handle == INVALID_HANDLE_VALUE) {
+    if (GetLastError() != ERROR_FILE_NOT_FOUND)
+      goto fail;
+
+    goto succeed;
+  }
 
   do {
     if (strcmp(fdata.cFileName, ".") == 0
@@ -401,7 +408,7 @@ urkel_fs_scandir(const char *name, urkel_dirent_t ***out, size_t *count) {
     if (len + 1 > sizeof(item->d_name))
       goto fail;
 
-    if (i == size - 1) {
+    if (i == size) {
       size = (size * 3) / 2;
       list = realloc(list, size * sizeof(urkel_dirent_t *));
 
@@ -429,12 +436,11 @@ urkel_fs_scandir(const char *name, urkel_dirent_t ***out, size_t *count) {
   if (GetLastError() != ERROR_NO_MORE_FILES)
     goto fail;
 
-  list[i] = NULL;
-
   FindClose(handle);
 
   qsort(list, i, sizeof(urkel_dirent_t *), urkel__dirent_compare);
 
+succeed:
   *out = list;
   *count = i;
 
@@ -471,8 +477,7 @@ urkel_fs_fstat(int fd, urkel_stat_t *out) {
 int64_t
 urkel_fs_seek(int fd, int64_t pos, int whence) {
   HANDLE handle = (HANDLE)_get_osfhandle(fd);
-  LARGE_INTEGER pos_;
-  LARGE_INTEGER ptr;
+  LARGE_INTEGER pos_, ptr;
   DWORD method = 0;
 
   if (handle == INVALID_HANDLE_VALUE)
@@ -489,8 +494,7 @@ urkel_fs_seek(int fd, int64_t pos, int whence) {
       method = FILE_END;
       break;
     default:
-      abort();
-      break;
+      return -1;
   }
 
   pos_.QuadPart = pos;
