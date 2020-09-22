@@ -146,7 +146,7 @@ urkel_tree_get(tree_db_t *tree,
     }
 
     default: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       return 0;
     }
   }
@@ -270,7 +270,7 @@ urkel_tree_insert(tree_db_t *tree,
     }
 
     default: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       return NULL;
     }
   }
@@ -390,7 +390,7 @@ urkel_tree_remove(tree_db_t *tree,
     }
 
     default: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       return NULL;
     }
   }
@@ -491,7 +491,7 @@ urkel_tree_prove(tree_db_t *tree,
     }
 
     default: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       return 0;
     }
   }
@@ -568,7 +568,7 @@ urkel_tree_write(tree_db_t *tree, urkel_node_t *node) {
     }
 
     default: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       return NULL;
     }
   }
@@ -634,12 +634,20 @@ urkel_close(tree_db_t *tree) {
 
 int
 urkel_destroy(const char *prefix) {
-  return urkel_store_destroy(prefix);
+  if (!urkel_store_destroy(prefix)) {
+    urkel_errno = URKEL_EBADOPEN;
+    return 0;
+  }
+  return 1;
 }
 
 int
 urkel__corrupt(const char *prefix) {
-  return urkel_store__corrupt(prefix);
+  if (!urkel_store__corrupt(prefix)) {
+    urkel_errno = URKEL_EBADOPEN;
+    return 0;
+  }
+  return 1;
 }
 
 void
@@ -990,8 +998,10 @@ urkel_tx_insert(tree_tx_t *tx,
                 size_t size) {
   urkel_node_t *root;
 
-  if (size > URKEL_VALUE_SIZE)
+  if (size > URKEL_VALUE_SIZE) {
+    urkel_errno = URKEL_EINVAL;
     return 0;
+  }
 
   urkel_rwlock_wrlock(tx->lock);
   urkel_rwlock_rdlock(tx->tree->lock);
@@ -1143,9 +1153,11 @@ urkel_iter_push(tree_iter_t *iter,
                 urkel_node_t *node,
                 unsigned int depth,
                 int resolved) {
-  urkel_state_t *state = &iter->stack[iter->stack_len++];
+  urkel_state_t *state;
 
-  CHECK(iter->stack_len <= URKEL_KEY_BITS);
+  CHECK(iter->stack_len < URKEL_KEY_BITS);
+
+  state = &iter->stack[iter->stack_len++];
 
   state->node = node;
   state->depth = depth;
@@ -1241,7 +1253,7 @@ urkel_iter_seek(tree_iter_t *iter) {
       }
 
       default: {
-        urkel_abort();
+        urkel_abort(); /* LCOV_EXCL_LINE */
         break;
       }
     }
