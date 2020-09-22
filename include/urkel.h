@@ -7,6 +7,10 @@
 #ifndef _URKEL_H
 #define _URKEL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stddef.h>
 
 /*
@@ -193,5 +197,9 @@ urkel_iter_next(urkel_iter_t *iter,
                 unsigned char *key,
                 unsigned char *value,
                 size_t *size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _URKEL_H */
