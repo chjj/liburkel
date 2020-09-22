@@ -81,6 +81,9 @@ urkel_proof_size(const urkel_proof_t *proof) {
       size += 2;
       size += proof->size;
       break;
+    default:
+      urkel_abort(); /* LCOV_EXCL_LINE */
+      break;
   }
 
   return size;
@@ -111,33 +114,24 @@ urkel_proof_write(const urkel_proof_t *proof, unsigned char *data) {
   }
 
   switch (proof->type) {
-    case URKEL_TYPE_DEADEND: {
+    case URKEL_TYPE_DEADEND:
       break;
-    }
-
-    case URKEL_TYPE_SHORT: {
+    case URKEL_TYPE_SHORT:
       data = urkel_bits_write(&proof->prefix, data);
       data = urkel_write(data, proof->left, URKEL_HASH_SIZE);
       data = urkel_write(data, proof->right, URKEL_HASH_SIZE);
       break;
-    }
-
-    case URKEL_TYPE_COLLISION: {
+    case URKEL_TYPE_COLLISION:
       data = urkel_write(data, proof->key, URKEL_KEY_SIZE);
       data = urkel_write(data, proof->hash, URKEL_HASH_SIZE);
       break;
-    }
-
-    case URKEL_TYPE_EXISTS: {
+    case URKEL_TYPE_EXISTS:
       data = urkel_write16(data, proof->size);
       data = urkel_write(data, proof->value, proof->size);
       break;
-    }
-
-    default: {
-      urkel_abort();
+    default:
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
-    }
   }
 
   return data;

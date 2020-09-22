@@ -105,7 +105,7 @@ urkel_node_init(urkel_node_t *node, unsigned int type) {
     }
 
     default: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
     }
   }
@@ -150,7 +150,7 @@ urkel_node_clear(urkel_node_t *node) {
     }
 
     default: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
     }
   }
@@ -242,7 +242,7 @@ urkel_node_get(const urkel_node_t *node, unsigned int bit) {
     case 1:
       return internal->right;
     default:
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -261,7 +261,7 @@ urkel_node_set(urkel_node_t *node, unsigned int bit, urkel_node_t *child) {
       internal->right = child;
       break;
     default:
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
   }
 }
@@ -364,7 +364,7 @@ urkel_node_destroy(urkel_node_t *node, int recurse) {
     }
 
     default: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
     }
   }
@@ -412,7 +412,7 @@ urkel_node_hash(urkel_node_t *node) {
     }
 
     default: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
     }
   }
@@ -483,7 +483,7 @@ urkel_node_size(const urkel_node_t *node) {
 
   switch (node->type) {
     case URKEL_NODE_NULL: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
     }
 
@@ -519,12 +519,12 @@ urkel_node_size(const urkel_node_t *node) {
     }
 
     case URKEL_NODE_HASH: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
     }
 
     default: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
     }
   }
@@ -536,7 +536,7 @@ unsigned char *
 urkel_node_write(const urkel_node_t *node, unsigned char *data) {
   switch (node->type) {
     case URKEL_NODE_NULL: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
     }
 
@@ -586,12 +586,12 @@ urkel_node_write(const urkel_node_t *node, unsigned char *data) {
     }
 
     case URKEL_NODE_HASH: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
     }
 
     default: {
-      urkel_abort();
+      urkel_abort(); /* LCOV_EXCL_LINE */
       break;
     }
   }
