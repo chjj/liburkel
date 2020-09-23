@@ -820,7 +820,8 @@ urkel_store_read_history(data_store_t *store,
   urkel_meta_t meta;
   urkel_node_t node;
 
-  if (memcmp(root_hash, zero_hash, URKEL_HASH_SIZE) == 0) {
+  /* Use custom memcmp to avoid a GCC bug. */
+  if (urkel_memcmp(root_hash, zero_hash, URKEL_HASH_SIZE) == 0) {
     urkel_node_init(root, URKEL_NODE_NULL);
     return 1;
   }

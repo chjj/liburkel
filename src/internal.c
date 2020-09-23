@@ -31,3 +31,17 @@ void
 __urkel_abort(void) {
   abort(); /* LCOV_EXCL_LINE */
 }
+
+int
+__urkel_memcmp(const void *s1, const void *s2, size_t n) {
+  const unsigned char *x = s1;
+  const unsigned char *y = s2;
+  size_t i;
+
+  for (i = 0; i < n; i++) {
+    if (x[i] != y[i])
+      return (int)x[i] - (int)y[i];
+  }
+
+  return 0;
+}

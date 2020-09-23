@@ -120,11 +120,22 @@
 
 #define urkel_abort __urkel_abort
 
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
+/* Avoid a GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189 */
+#  define urkel_memcmp __urkel_memcmp
+#else
+#  include <string.h>
+#  define urkel_memcmp memcmp
+#endif
+
 URKEL_NORETURN void
 __urkel_assert_fail(const char *file, int line, const char *expr);
 
 URKEL_NORETURN void
 __urkel_abort(void);
+
+int
+__urkel_memcmp(const void *s1, const void *s2, size_t n);
 
 static URKEL_INLINE void *
 checked_malloc(size_t size) {

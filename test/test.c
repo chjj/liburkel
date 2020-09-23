@@ -12,8 +12,27 @@
 
 #define URKEL_ITERATIONS 1000
 
-int
-main(void) {
+static void
+test_memcmp(void) {
+  static const unsigned char a[4] = {0, 1, 2, 3};
+  static const unsigned char b[4] = {0, 1, 2, 3};
+  static const unsigned char c[4] = {3, 2, 1, 0};
+  static const unsigned char d[4] = {3, 2, 1, 0};
+
+  ASSERT(urkel_memcmp(a, b, 4) == 0);
+  ASSERT(urkel_memcmp(c, d, 4) == 0);
+  ASSERT(urkel_memcmp(a, b, 4) >= 0);
+  ASSERT(urkel_memcmp(c, d, 4) >= 0);
+  ASSERT(urkel_memcmp(a, b, 4) <= 0);
+  ASSERT(urkel_memcmp(c, d, 4) <= 0);
+  ASSERT(urkel_memcmp(a, c, 4) != 0);
+  ASSERT(urkel_memcmp(c, a, 4) != 0);
+  ASSERT(urkel_memcmp(a, c, 4) < 0);
+  ASSERT(urkel_memcmp(c, a, 4) > 0);
+}
+
+static void
+test_urkel_sanity(void) {
   urkel_kv_t *kvs = urkel_kv_generate(URKEL_ITERATIONS);
   unsigned char old_root[32];
   unsigned char old_root2[32];
@@ -44,7 +63,7 @@ main(void) {
     ASSERT(urkel_tx_get(tx, result, &result_len, key));
 
     ASSERT(result_len == 64);
-    ASSERT(memcmp(result, value, 64) == 0);
+    ASSERT(urkel_memcmp(result, value, 64) == 0);
 
     if ((i & 15) == 0)
       ASSERT(urkel_tx_commit(tx));
@@ -62,7 +81,7 @@ main(void) {
     ASSERT(urkel_tx_get(tx, result, &result_len, key));
 
     ASSERT(result_len == 64);
-    ASSERT(memcmp(result, value, 64) == 0);
+    ASSERT(urkel_memcmp(result, value, 64) == 0);
   }
 
   urkel_tx_destroy(tx);
@@ -86,7 +105,7 @@ main(void) {
     ASSERT(urkel_tx_get(tx, result, &result_len, key));
 
     ASSERT(result_len == 64);
-    ASSERT(memcmp(result, value, 64) == 0);
+    ASSERT(urkel_memcmp(result, value, 64) == 0);
   }
 
   {
@@ -103,8 +122,8 @@ main(void) {
 
     while (urkel_iter_next(iter, key, value, &len)) {
       ASSERT(len == 64);
-      ASSERT(memcmp(key, kvs[i].key, 32) == 0);
-      ASSERT(memcmp(value, kvs[i].value, 64) == 0);
+      ASSERT(urkel_memcmp(key, kvs[i].key, 32) == 0);
+      ASSERT(urkel_memcmp(value, kvs[i].value, 64) == 0);
       i += 1;
     }
 
@@ -130,7 +149,7 @@ main(void) {
 
     ASSERT(exists == 1);
     ASSERT(value_len == 64);
-    ASSERT(memcmp(value, kvs[i].value, 64) == 0);
+    ASSERT(urkel_memcmp(value, kvs[i].value, 64) == 0);
 
     free(proof_raw);
   }
@@ -164,8 +183,8 @@ main(void) {
 
     while (urkel_iter_next(iter, key, value, &len)) {
       ASSERT(len == 64);
-      ASSERT(memcmp(key, kvs[i].key, 32) == 0);
-      ASSERT(memcmp(value, kvs[i].value, 64) == 0);
+      ASSERT(urkel_memcmp(key, kvs[i].key, 32) == 0);
+      ASSERT(urkel_memcmp(value, kvs[i].value, 64) == 0);
       i += 2;
     }
 
@@ -194,7 +213,7 @@ main(void) {
     } else {
       ASSERT(exists == 1);
       ASSERT(value_len == 64);
-      ASSERT(memcmp(value, kvs[i].value, 64) == 0);
+      ASSERT(urkel_memcmp(value, kvs[i].value, 64) == 0);
     }
 
     free(proof_raw);
@@ -214,8 +233,8 @@ main(void) {
 
     while (urkel_iter_next(iter, key, value, &len)) {
       ASSERT(len == 64);
-      ASSERT(memcmp(key, kvs[i].key, 32) == 0);
-      ASSERT(memcmp(value, kvs[i].value, 64) == 0);
+      ASSERT(urkel_memcmp(key, kvs[i].key, 32) == 0);
+      ASSERT(urkel_memcmp(value, kvs[i].value, 64) == 0);
       i += 2;
     }
 
@@ -240,8 +259,8 @@ main(void) {
 
     while (urkel_iter_next(iter, key, value, &len)) {
       ASSERT(len == 64);
-      ASSERT(memcmp(key, kvs[i].key, 32) == 0);
-      ASSERT(memcmp(value, kvs[i].value, 64) == 0);
+      ASSERT(urkel_memcmp(key, kvs[i].key, 32) == 0);
+      ASSERT(urkel_memcmp(value, kvs[i].value, 64) == 0);
       i += 1;
     }
 
@@ -266,12 +285,17 @@ main(void) {
 
     urkel_close(db);
 
-    ASSERT(memcmp(new_root, old_root2, 32) == 0);
+    ASSERT(urkel_memcmp(new_root, old_root2, 32) == 0);
   }
 
   ASSERT(urkel_destroy(URKEL_PATH));
 
   urkel_kv_free(kvs);
+}
 
+int
+main(void) {
+  test_memcmp();
+  test_urkel_sanity();
   return 0;
 }

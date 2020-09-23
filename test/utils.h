@@ -20,6 +20,14 @@
 
 #define URKEL_PATH "./urkel_db_test"
 
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__INTEL_COMPILER)
+/* Avoid a GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189 */
+#  define urkel_memcmp __urkel_test_memcmp
+#else
+#  include <string.h>
+#  define urkel_memcmp memcmp
+#endif
+
 typedef struct urkel_kv_s {
   unsigned char key[32];
   unsigned char value[64];
@@ -27,6 +35,9 @@ typedef struct urkel_kv_s {
 
 void
 __urkel_test_assert_fail(const char *file, int line, const char *expr);
+
+int
+__urkel_test_memcmp(const void *s1, const void *s2, size_t n);
 
 urkel_kv_t *
 urkel_kv_generate(size_t len);

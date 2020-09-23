@@ -195,7 +195,7 @@ bench_urkel(void) {
 
       ASSERT(exists == 1);
       ASSERT(value_len == 64);
-      ASSERT(memcmp(value, kvs[0].value, 64) == 0);
+      ASSERT(urkel_memcmp(value, kvs[0].value, 64) == 0);
     }
 
     bench_end(&tv, i);

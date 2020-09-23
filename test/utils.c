@@ -17,11 +17,25 @@ __urkel_test_assert_fail(const char *file, int line, const char *expr) {
   abort();
 }
 
+int
+__urkel_test_memcmp(const void *s1, const void *s2, size_t n) {
+  const unsigned char *x = s1;
+  const unsigned char *y = s2;
+  size_t i;
+
+  for (i = 0; i < n; i++) {
+    if (x[i] != y[i])
+      return (int)x[i] - (int)y[i];
+  }
+
+  return 0;
+}
+
 static int
 urkel_kv_compare(const void *x, const void *y) {
   const unsigned char *a = ((const urkel_kv_t *)x)->key;
   const unsigned char *b = ((const urkel_kv_t *)y)->key;
-  return memcmp(a, b, 32);
+  return urkel_memcmp(a, b, 32);
 }
 
 urkel_kv_t *
