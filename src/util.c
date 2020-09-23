@@ -103,7 +103,7 @@ urkel_parse_u32(uint32_t *out, const char *str) {
   size_t i;
   int ch;
 
-  if (out)
+  if (out != NULL)
     *out = 0;
 
   for (i = 0; i < 10; i++) {
@@ -125,7 +125,7 @@ urkel_parse_u32(uint32_t *out, const char *str) {
   if (str[i] != '\0')
     return 0;
 
-  if (out)
+  if (out != NULL)
     *out = (uint32_t)num;
 
   return 1;
