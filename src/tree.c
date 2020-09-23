@@ -94,11 +94,6 @@ urkel_tree_get(tree_db_t *tree,
       urkel_bits_t *prefix = &internal->prefix;
       unsigned int bit;
 
-      if (depth == URKEL_KEY_BITS) {
-        urkel_errno = URKEL_ECORRUPTION;
-        return 0;
-      }
-
       if (!urkel_bits_has(prefix, key, depth)) {
         urkel_errno = URKEL_ENOTFOUND;
         return 0;
@@ -174,11 +169,6 @@ urkel_tree_insert(tree_db_t *tree,
       unsigned int bit;
       size_t bits;
 
-      if (depth == URKEL_KEY_BITS) {
-        urkel_errno = URKEL_ECORRUPTION;
-        return NULL;
-      }
-
       bits = urkel_bits_count(prefix, key, depth);
 
       depth += bits;
@@ -240,11 +230,6 @@ urkel_tree_insert(tree_db_t *tree,
         return leaf;
       }
 
-      if (depth == URKEL_KEY_BITS) {
-        urkel_errno = URKEL_ECORRUPTION;
-        return NULL;
-      }
-
       urkel_node_key_bits(node, &bits);
       urkel_bits_collide(&prefix, &bits, key, depth);
 
@@ -296,11 +281,6 @@ urkel_tree_remove(tree_db_t *tree,
       urkel_bits_t *prefix = &internal->prefix;
       urkel_node_t *x, *y, *z, *out;
       unsigned int bit, found;
-
-      if (depth == URKEL_KEY_BITS) {
-        urkel_errno = URKEL_ECORRUPTION;
-        return NULL;
-      }
 
       if (!urkel_bits_has(prefix, key, depth)) {
         urkel_errno = URKEL_ENOTFOUND;
@@ -414,11 +394,6 @@ urkel_tree_prove(tree_db_t *tree,
       urkel_bits_t *prefix = &internal->prefix;
       urkel_node_t *x, *y;
       unsigned int bit;
-
-      if (depth == URKEL_KEY_BITS) {
-        urkel_errno = URKEL_ECORRUPTION;
-        return 0;
-      }
 
       if (!urkel_bits_has(prefix, key, depth)) {
         const unsigned char *left = urkel_node_hash(internal->left);

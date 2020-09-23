@@ -81,11 +81,13 @@ urkel_set_bit(unsigned char *key, size_t index, unsigned int bit) {
 
 static URKEL_INLINE unsigned int
 urkel_bits_get(const urkel_bits_t *bits, size_t index) {
+  CHECK(index < URKEL_KEY_BITS);
   return urkel_get_bit(bits->data, index);
 }
 
 static URKEL_INLINE void
 urkel_bits_set(urkel_bits_t *bits, size_t index, unsigned int bit) {
+  CHECK(index < URKEL_KEY_BITS);
   urkel_set_bit(bits->data, index, bit);
 }
 

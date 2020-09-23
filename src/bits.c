@@ -16,7 +16,10 @@
 
 void
 urkel_bits_init(urkel_bits_t *bits, size_t size) {
+  CHECK(size <= URKEL_KEY_BITS);
+
   bits->size = size;
+
   memset(bits->data, 0, sizeof(bits->data));
 }
 
@@ -30,6 +33,10 @@ urkel_bits__count(const urkel_bits_t *bits,
   size_t len = x < y ? x : y;
   size_t count = 0;
   size_t i;
+
+  CHECK(bits->size <= URKEL_KEY_BITS);
+  CHECK(index <= bits->size);
+  CHECK(depth <= URKEL_KEY_BITS);
 
   for (i = 0; i < len; i++) {
     if (urkel_bits_get(bits, index) != urkel_get_bit(key, depth))
@@ -64,6 +71,8 @@ urkel_bits_slice(urkel_bits_t *out,
                  size_t end) {
   size_t size = end - start;
   size_t i, j;
+
+  CHECK(start <= end);
 
   urkel_bits_init(out, size);
 
