@@ -308,7 +308,16 @@ urkel_fs_truncate(const char *name, int64_t size) {
 
 int
 urkel_fs_rename(const char *oldpath, const char *newpath) {
-  return MoveFileExA(oldpath, newpath, MOVEFILE_REPLACE_EXISTING) != 0;
+  if (MoveFileExA(oldpath, newpath, MOVEFILE_REPLACE_EXISTING))
+    return 1;
+
+  if (ReplaceFileA(newpath, oldpath, NULL,
+                   REPLACEFILE_IGNORE_MERGE_ERRORS,
+                   NULL, NULL)) {
+    return 1;
+  }
+
+  return 0;
 }
 
 int
