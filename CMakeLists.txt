@@ -104,7 +104,8 @@ else()
                                       -Wno-implicit-fallthrough
                                       -Wno-long-long
                                       -Wno-overlength-strings
-                                      -Wshadow)
+                                      -Wshadow
+                                      -fno-builtin-memcmp)
 endif()
 
 if(URKEL_ENABLE_COVERAGE)
