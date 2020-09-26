@@ -27,7 +27,7 @@ Set with one of the below constants if any call fails.
 - `URKEL_EINVAL` - Invalid arguments.
 - `URKEL_ENOTFOUND` - Entry not found.
 - `URKEL_ECORRUPTION` - Corruption detected.
-- `URKEL_EBADWRITE` - Write failued.
+- `URKEL_EBADWRITE` - Write failed.
 - `URKEL_EBADOPEN` - Open/Destroy failed.
 - `URKEL_EITEREND` - Iterator was ended.
 
