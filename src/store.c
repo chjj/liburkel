@@ -32,7 +32,7 @@
                    | URKEL_O_RANDOM | URKEL_O_MMAP)
 #define READ_FLAGS (URKEL_O_RDONLY | URKEL_O_RANDOM | URKEL_O_MMAP)
 #define CACHE_HASH(k) urkel_murmur3(k, URKEL_HASH_SIZE, 0)
-#define CHACHE_EQUAL(a, b) (memcmp(a, b, URKEL_HASH_SIZE) == 0)
+#define CACHE_EQUAL(a, b) (memcmp(a, b, URKEL_HASH_SIZE) == 0)
 
 /*
  * Structs
@@ -65,7 +65,7 @@ typedef struct urkel_filemap_s {
 } urkel_filemap_t;
 
 KHASH_INIT(nodes, const unsigned char *,
-           urkel_node_t *, 1, CACHE_HASH, CHACHE_EQUAL)
+           urkel_node_t *, 1, CACHE_HASH, CACHE_EQUAL)
 
 typedef struct urkel_cache_s {
   khash_t(nodes) *map;
