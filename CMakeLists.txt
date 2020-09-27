@@ -284,7 +284,7 @@ else()
     string(REGEX MATCH "^[0-9]+" urkel_soversion "${URKEL_ABI_VERSION}")
 
     set_target_properties(urkel PROPERTIES VERSION ${urkel_version}
-                                             SOVERSION ${urkel_soversion})
+                                           SOVERSION ${urkel_soversion})
     set_target_properties(urkel_static PROPERTIES OUTPUT_NAME urkel)
 
     configure_file(liburkel.pc.in liburkel.pc @ONLY)
