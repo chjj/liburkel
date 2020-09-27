@@ -293,9 +293,38 @@ test_urkel_sanity(void) {
   urkel_kv_free(kvs);
 }
 
+static void
+test_urkel_node_replacement(void) {
+  /* See: https://github.com/chjj/liburkel/issues/6 */
+  urkel_kv_t *kvs = urkel_kv_generate(2);
+  urkel_tx_t *tx;
+  urkel_t *db;
+
+  urkel_destroy(URKEL_PATH);
+
+  db = urkel_open(URKEL_PATH);
+
+  ASSERT(db != NULL);
+
+  tx = urkel_tx_create(db, NULL);
+
+  ASSERT(tx != NULL);
+  ASSERT(urkel_tx_insert(tx, kvs[0].key, kvs[0].value, 64));
+  ASSERT(urkel_tx_commit(tx));
+  ASSERT(!urkel_tx_remove(tx, kvs[1].key));
+
+  urkel_tx_destroy(tx);
+  urkel_close(db);
+
+  ASSERT(urkel_destroy(URKEL_PATH));
+
+  urkel_kv_free(kvs);
+}
+
 int
 main(void) {
   test_memcmp();
   test_urkel_sanity();
+  test_urkel_node_replacement();
   return 0;
 }

@@ -243,15 +243,21 @@ urkel_tree_insert(tree_db_t *tree,
 
     case URKEL_NODE_HASH: {
       urkel_node_t *rn = urkel_store_resolve(tree->store, node);
+      urkel_node_t *ret;
 
       if (rn == NULL) {
         urkel_errno = URKEL_ECORRUPTION;
         return NULL;
       }
 
-      urkel_node_destroy(node, 0);
+      ret = urkel_tree_insert(tree, rn, key, value, size, depth);
 
-      return urkel_tree_insert(tree, rn, key, value, size, depth);
+      if (ret != NULL)
+        urkel_node_destroy(node, 0);
+      else
+        urkel_node_destroy(rn, 1);
+
+      return ret;
     }
 
     default: {
@@ -358,15 +364,21 @@ urkel_tree_remove(tree_db_t *tree,
 
     case URKEL_NODE_HASH: {
       urkel_node_t *rn = urkel_store_resolve(tree->store, node);
+      urkel_node_t *ret;
 
       if (rn == NULL) {
         urkel_errno = URKEL_ECORRUPTION;
         return NULL;
       }
 
-      urkel_node_destroy(node, 0);
+      ret = urkel_tree_remove(tree, rn, key, depth, flag);
 
-      return urkel_tree_remove(tree, rn, key, depth, flag);
+      if (ret != NULL)
+        urkel_node_destroy(node, 0);
+      else
+        urkel_node_destroy(rn, 1);
+
+      return ret;
     }
 
     default: {
