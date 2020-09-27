@@ -168,7 +168,7 @@ bench_urkel(void) {
 
       ASSERT(urkel_tx_prove(tx, &proof_raw, &proof_len, key));
 
-      free(proof_raw);
+      urkel_free(proof_raw);
     }
 
     bench_end(&tv, i);
@@ -200,7 +200,7 @@ bench_urkel(void) {
 
     bench_end(&tv, i);
 
-    free(proof_raw);
+    urkel_free(proof_raw);
   }
 
   urkel_tx_destroy(tx);

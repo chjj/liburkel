@@ -101,7 +101,7 @@ int main(void) {
     assert(val_len == sizeof(val));
     assert(memcmp(val_out, val, val_len) == 0);
 
-    free(proof_raw);
+    urkel_free(proof_raw);
   }
 
   {

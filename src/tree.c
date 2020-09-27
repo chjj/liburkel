@@ -1286,3 +1286,14 @@ fail:
   urkel_mutex_unlock(iter->lock);
   return ret;
 }
+
+/*
+ * Helpers
+ */
+
+void
+urkel_free(void *ptr) {
+  CHECK(ptr != NULL);
+
+  free(ptr);
+}

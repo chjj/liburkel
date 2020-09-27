@@ -151,7 +151,7 @@ test_urkel_sanity(void) {
     ASSERT(value_len == 64);
     ASSERT(urkel_memcmp(value, kvs[i].value, 64) == 0);
 
-    free(proof_raw);
+    urkel_free(proof_raw);
   }
 
   urkel_root(db, old_root);
@@ -216,7 +216,7 @@ test_urkel_sanity(void) {
       ASSERT(urkel_memcmp(value, kvs[i].value, 64) == 0);
     }
 
-    free(proof_raw);
+    urkel_free(proof_raw);
   }
 
   ASSERT(urkel_tx_commit(tx));

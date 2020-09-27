@@ -349,4 +349,16 @@ Note that this function will return `0` when there are no more leaves to
 iterate over. To differentiate this from other error conditions, use the
 `URKEL_EITEREND` error code.
 
+## Helpers
+
+``` c
+void
+urkel_free(void *ptr);
+```
+
+Free a pointer which was previously allocated by urkel. This currently only
+applies to proof data. `ptr` must not be `NULL`.
+
+---
+
 [1]: https://github.com/chjj/liburkel/blob/master/include/urkel.h

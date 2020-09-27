@@ -198,6 +198,13 @@ urkel_iter_next(urkel_iter_t *iter,
                 unsigned char *value,
                 size_t *size);
 
+/*
+ * Helpers
+ */
+
+URKEL_EXTERN void
+urkel_free(void *ptr);
+
 #ifdef __cplusplus
 }
 #endif
