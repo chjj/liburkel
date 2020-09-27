@@ -931,10 +931,13 @@ urkel_tx_inject(tree_tx_t *tx, const unsigned char *hash) {
 
   root = urkel_store_get_history(tx->tree->store, hash);
 
-  if (root == NULL)
-    urkel_errno = URKEL_ENOTFOUND;
-  else
+  if (root != NULL) {
+    urkel_node_destroy(tx->root, 1);
+
     tx->root = root;
+  } else {
+    urkel_errno = URKEL_ENOTFOUND;
+  }
 
   urkel_rwlock_wrunlock(tx->tree->lock);
   urkel_rwlock_wrunlock(tx->lock);
