@@ -253,6 +253,9 @@ urkel_proof_read(urkel_proof_t *proof, const unsigned char *data, size_t len) {
       if (len < size)
         return 0;
 
+      if (size > URKEL_VALUE_SIZE)
+        return 0;
+
       urkel_read(proof->value, data, size);
       data += size;
       len -= size;
@@ -325,7 +328,7 @@ urkel_proof_is_sane(const urkel_proof_t *proof) {
       if (proof->prefix.size > 0)
         return 0;
 
-      if (proof->size > 0xffff)
+      if (proof->size > URKEL_VALUE_SIZE)
         return 0;
 
       break;
