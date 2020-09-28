@@ -84,7 +84,7 @@ urkel_tree_get(tree_db_t *tree,
                unsigned int depth) {
   switch (node->type) {
     case URKEL_NODE_NULL: {
-      /* Empty (sub)tree. */
+      /* Empty tree. */
       urkel_errno = URKEL_ENOTFOUND;
       return 0;
     }
@@ -271,13 +271,10 @@ static urkel_node_t *
 urkel_tree_remove(tree_db_t *tree,
                   urkel_node_t *node,
                   const unsigned char *key,
-                  unsigned int depth,
-                  unsigned int *flag) {
-  *flag = 0;
-
+                  unsigned int depth) {
   switch (node->type) {
     case URKEL_NODE_NULL: {
-      /* Empty (sub)tree. */
+      /* Empty tree. */
       urkel_errno = URKEL_ENOTFOUND;
       return NULL;
     }
@@ -286,7 +283,7 @@ urkel_tree_remove(tree_db_t *tree,
       urkel_internal_t *internal = &node->u.internal;
       urkel_bits_t *prefix = &internal->prefix;
       urkel_node_t *x, *y, *z, *out;
-      unsigned int bit, found;
+      unsigned int bit;
 
       if (!urkel_bits_has(prefix, key, depth)) {
         urkel_errno = URKEL_ENOTFOUND;
@@ -298,12 +295,12 @@ urkel_tree_remove(tree_db_t *tree,
       bit = urkel_get_bit(key, depth);
       x = urkel_node_get(node, bit ^ 0);
       y = urkel_node_get(node, bit ^ 1);
-      z = urkel_tree_remove(tree, x, key, depth + 1, &found);
+      z = urkel_tree_remove(tree, x, key, depth + 1);
 
       if (z == NULL)
         return NULL;
 
-      if (found) {
+      if (z->type == URKEL_NODE_NULL) {
         urkel_node_t *side = y;
         int resolved = 0;
 
@@ -355,8 +352,6 @@ urkel_tree_remove(tree_db_t *tree,
         return NULL;
       }
 
-      *flag = 1;
-
       urkel_node_destroy(node, 0);
 
       return urkel_node_create_null();
@@ -371,7 +366,7 @@ urkel_tree_remove(tree_db_t *tree,
         return NULL;
       }
 
-      ret = urkel_tree_remove(tree, rn, key, depth, flag);
+      ret = urkel_tree_remove(tree, rn, key, depth);
 
       if (ret != NULL)
         urkel_node_destroy(node, 0);
@@ -1012,12 +1007,11 @@ urkel_tx_insert(tree_tx_t *tx,
 int
 urkel_tx_remove(tree_tx_t *tx, const unsigned char *key) {
   urkel_node_t *root;
-  unsigned int flag;
 
   urkel_rwlock_wrlock(tx->lock);
   urkel_rwlock_rdlock(tx->tree->lock);
 
-  root = urkel_tree_remove(tx->tree, tx->root, key, 0, &flag);
+  root = urkel_tree_remove(tx->tree, tx->root, key, 0);
 
   if (root != NULL)
     tx->root = root;
