@@ -358,11 +358,39 @@ test_urkel_leaky_inject(void) {
   urkel_kv_free(kvs);
 }
 
+static void
+test_urkel_max_value_size(void) {
+  unsigned char key[32];
+  unsigned char val[1023 + 1];
+  urkel_t *db;
+
+  memset(key, 0xaa, sizeof(key));
+  memset(val, 0x11, sizeof(val));
+
+  urkel_destroy(URKEL_PATH);
+
+  db = urkel_open(URKEL_PATH);
+
+  ASSERT(db != NULL);
+
+  urkel_errno = 0;
+
+  ASSERT(!urkel_insert(db, key, val, sizeof(val)));
+  ASSERT(urkel_errno == URKEL_EINVAL);
+
+  ASSERT(urkel_insert(db, key, val, sizeof(val) - 1));
+
+  urkel_close(db);
+
+  ASSERT(urkel_destroy(URKEL_PATH));
+}
+
 int
 main(void) {
   test_memcmp();
   test_urkel_sanity();
   test_urkel_node_replacement();
   test_urkel_leaky_inject();
+  test_urkel_max_value_size();
   return 0;
 }

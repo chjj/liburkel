@@ -164,7 +164,7 @@ checked_realloc(void *ptr, size_t size) {
 #define URKEL_HASH_SIZE 32
 #define URKEL_KEY_SIZE 32
 #define URKEL_KEY_BITS 256
-#define URKEL_VALUE_SIZE 1024
+#define URKEL_VALUE_SIZE 1023
 
 /* 17958 */
 #define URKEL_PROOF_SIZE (0        \

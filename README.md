@@ -51,7 +51,7 @@ int main(void) {
   unsigned char key[32];
   unsigned char val[4] = {0xde, 0xad, 0xbe, 0xef};
   unsigned char key_out[32];
-  unsigned char val_out[1024]; /* Max size (currently). */
+  unsigned char val_out[1023]; /* Max size (currently). */
   size_t val_len;
   urkel_t *db;
   urkel_tx_t *tx;

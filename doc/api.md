@@ -101,7 +101,7 @@ urkel_get(urkel_t *tree,
 ```
 
 Retrieve record at `key` from tree `tree` and write output to `value` and
-`size`. Note that the current maximum value size is 1024 bytes. Returns `1` on
+`size`. Note that the current maximum value size is 1023 bytes. Returns `1` on
 success. Returns `0` and sets `urkel_errno` on failure.
 
 Missing records can be differentiated from other errors with the
@@ -249,7 +249,7 @@ urkel_tx_get(urkel_tx_t *tx,
 ```
 
 Retrieve record at `key` from transaction `tx` and write output to `value` and
-`size`. Note that the current maximum value size is 1024 bytes. Returns `1` on
+`size`. Note that the current maximum value size is 1023 bytes. Returns `1` on
 success. Returns `0` and sets `urkel_errno` on failure.
 
 Missing records can be differentiated from other errors with the
@@ -342,7 +342,7 @@ urkel_iter_next(urkel_iter_t *iter,
 ```
 
 Retrieve next record from iterator `iter` and write output to `key`, `value`,
-and `size`. Note that the current maximum value size is 1024 bytes. Returns `1`
+and `size`. Note that the current maximum value size is 1023 bytes. Returns `1`
 on success. Returns `0` and sets `urkel_errno` on failure.
 
 Note that this function will return `0` when there are no more leaves to
