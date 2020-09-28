@@ -893,6 +893,8 @@ urkel_tx_clear(tree_tx_t *tx) {
   urkel_rwlock_wrlock(tx->lock);
   urkel_rwlock_rdlock(tx->tree->lock);
 
+  urkel_node_destroy(tx->root, 1);
+
   tx->root = urkel_store_get_root(tx->tree->store);
 
   urkel_rwlock_rdunlock(tx->tree->lock);

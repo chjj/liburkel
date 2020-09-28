@@ -327,6 +327,7 @@ test_urkel_leaky_inject(void) {
   /* See: https://github.com/chjj/liburkel/issues/7 */
   urkel_kv_t *kvs = urkel_kv_generate(2);
   unsigned char root[32];
+  unsigned char tmp[32];
   urkel_tx_t *tx;
   urkel_t *db;
 
@@ -348,7 +349,21 @@ test_urkel_leaky_inject(void) {
   ASSERT(urkel_tx_insert(tx, kvs[1].key, kvs[1].value, 64));
   ASSERT(urkel_tx_commit(tx));
 
+  urkel_tx_root(tx, tmp);
+
+  ASSERT(urkel_memcmp(tmp, root, 32) != 0);
+
   ASSERT(urkel_tx_inject(tx, root));
+
+  urkel_tx_root(tx, tmp);
+
+  ASSERT(urkel_memcmp(tmp, root, 32) == 0);
+
+  urkel_tx_clear(tx);
+
+  urkel_tx_root(tx, tmp);
+
+  ASSERT(urkel_memcmp(tmp, root, 32) != 0);
 
   urkel_tx_destroy(tx);
   urkel_close(db);
