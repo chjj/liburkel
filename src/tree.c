@@ -307,10 +307,7 @@ urkel_tree_remove(tree_db_t *tree,
         if (side->type == URKEL_NODE_HASH) {
           side = urkel_store_resolve(tree->store, side);
 
-          if (side == NULL) {
-            urkel_errno = URKEL_ECORRUPTION;
-            return NULL;
-          }
+          CHECK(side != NULL);
 
           resolved = 1;
         }
