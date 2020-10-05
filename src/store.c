@@ -358,6 +358,8 @@ urkel_cache_insert(urkel_cache_t *cache, const urkel_node_t *node) {
   khiter_t iter;
   int ret = -1;
 
+  CHECK(node->type == URKEL_NODE_HASH);
+
   *val = *node;
   iter = kh_put(nodes, cache->map, val->hash, &ret);
 
@@ -745,7 +747,7 @@ urkel_store_flush(data_store_t *store) {
 static void
 urkel_store_write_meta(data_store_t *store,
                        urkel_meta_t *state,
-                       urkel_node_t *root) {
+                       const urkel_node_t *root) {
   /* Write lock is held. */
   static const unsigned char padding[META_SIZE] = {0};
   urkel_slab_t *slab = &store->slab;
@@ -773,7 +775,7 @@ urkel_store_write_meta(data_store_t *store,
 }
 
 int
-urkel_store_commit(data_store_t *store, urkel_node_t *root) {
+urkel_store_commit(data_store_t *store, const urkel_node_t *root) {
   /* Write lock is held. */
   urkel_meta_t state;
 

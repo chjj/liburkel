@@ -62,7 +62,7 @@ int
 urkel_store_flush(urkel_store_t *store);
 
 int
-urkel_store_commit(urkel_store_t *store, urkel_node_t *root);
+urkel_store_commit(urkel_store_t *store, const urkel_node_t *root);
 
 int
 urkel_store_has_history(urkel_store_t *store, const unsigned char *root_hash);
