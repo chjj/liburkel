@@ -1169,8 +1169,10 @@ urkel_iter_seek(tree_iter_t *iter) {
 
   iter->node = NULL;
 
-  if (iter->done)
+  if (iter->done) {
+    urkel_errno = URKEL_EITEREND;
     return 0;
+  }
 
   if (iter->stack_len == 0) {
     urkel_iter_push(iter, iter->root, 0, 0);
@@ -1182,6 +1184,7 @@ urkel_iter_seek(tree_iter_t *iter) {
 
     if (iter->stack_len == 0) {
       iter->done = 1;
+      urkel_errno = URKEL_EITEREND;
       return 0;
     }
   }
@@ -1274,9 +1277,6 @@ urkel_iter_next(tree_iter_t *iter,
 
     goto succeed;
   }
-
-  if (iter->done)
-    urkel_errno = URKEL_EITEREND;
 
   goto fail;
 succeed:
