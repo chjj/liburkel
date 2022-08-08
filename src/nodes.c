@@ -169,7 +169,7 @@ void
 urkel_node_mark(urkel_node_t *node,
                 uint16_t index,
                 uint32_t pos,
-                uint8_t size) {
+                size_t size) {
   CHECK(node->type != URKEL_NODE_NULL);
 
   node->ptr.index = index;
@@ -201,7 +201,7 @@ void
 urkel_node_save(urkel_node_t *node,
                 uint16_t index,
                 uint32_t pos,
-                uint8_t size) {
+                size_t size) {
   urkel_leaf_t *leaf = &node->u.leaf;
 
   CHECK(node->type == URKEL_NODE_LEAF);

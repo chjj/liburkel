@@ -389,6 +389,8 @@ static void
 test_urkel_max_value_size(void) {
   unsigned char key[32];
   unsigned char val[1023 + 1];
+  unsigned char result[1023];
+  size_t result_len;
   urkel_t *db;
 
   memset(key, 0xaa, sizeof(key));
@@ -406,6 +408,8 @@ test_urkel_max_value_size(void) {
   ASSERT(urkel_errno == URKEL_EINVAL);
 
   ASSERT(urkel_insert(db, key, val, sizeof(val) - 1));
+  ASSERT(urkel_get(db, result, &result_len, key, NULL));
+  ASSERT(result_len == 1023);
 
   urkel_close(db);
 

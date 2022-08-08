@@ -100,7 +100,7 @@ void
 urkel_node_mark(urkel_node_t *node,
                 uint16_t index,
                 uint32_t pos,
-                uint8_t size);
+                size_t size);
 
 void
 urkel_node_store(urkel_node_t *node,
@@ -111,7 +111,7 @@ void
 urkel_node_save(urkel_node_t *node,
                 uint16_t index,
                 uint32_t pos,
-                uint8_t size);
+                size_t size);
 
 void
 urkel_node_to_hash(const urkel_node_t *node, urkel_node_t *out);
