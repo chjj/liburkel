@@ -412,6 +412,60 @@ test_urkel_max_value_size(void) {
   ASSERT(urkel_destroy(URKEL_PATH));
 }
 
+static void
+test_urkel_compact(void) {
+  static const size_t PAIRS = 100;
+  size_t i;
+  urkel_t *db;
+  urkel_tx_t *tx;
+  urkel_kv_t *kvs = urkel_kv_generate(PAIRS);
+
+  db = urkel_open(URKEL_PATH);
+
+  ASSERT(db != NULL);
+
+  for (i = 0; i < PAIRS; i++) {
+    unsigned char *key = kvs[i].key;
+    unsigned char *value = kvs[i].value;
+    tx = urkel_tx_create(db, NULL);
+
+    ASSERT(tx != NULL);
+    ASSERT(urkel_tx_insert(tx, key, value, 64));
+    ASSERT(urkel_tx_has(tx, key));
+
+    ASSERT(urkel_tx_commit(tx));
+    urkel_tx_destroy(tx);
+  }
+
+  urkel_close(db);
+  ASSERT(urkel_compact(URKEL_TMP_PATH, URKEL_PATH, NULL));
+
+  db = urkel_open(URKEL_TMP_PATH);
+  ASSERT(db != NULL);
+
+  tx = urkel_tx_create(db, NULL);
+  ASSERT(tx != NULL);
+
+  for (i = 0; i < PAIRS; i++) {
+    unsigned char *key = kvs[i].key;
+    unsigned char *value = kvs[i].value;
+    unsigned char result[64];
+    size_t result_len;
+
+    ASSERT(urkel_tx_has(tx, key));
+    ASSERT(urkel_tx_get(tx, result, &result_len, key));
+    ASSERT(result_len == 64);
+    ASSERT(urkel_memcmp(result, value, 64) == 0);
+  }
+
+  urkel_tx_destroy(tx);
+  urkel_close(db);
+  urkel_kv_free(kvs);
+
+  ASSERT(urkel_destroy(URKEL_PATH));
+  ASSERT(urkel_destroy(URKEL_TMP_PATH));
+}
+
 int
 main(void) {
   test_memcmp();
@@ -419,5 +473,6 @@ main(void) {
   test_urkel_node_replacement();
   test_urkel_leaky_inject();
   test_urkel_max_value_size();
+  test_urkel_compact();
   return 0;
 }
