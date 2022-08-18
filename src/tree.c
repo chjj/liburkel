@@ -577,7 +577,16 @@ urkel_compact(const char *dst_prefix,
   int ret = 1;
 
   dst = urkel_open(dst_prefix);
+
+  if (dst == NULL)
+    return 0;
+
   src = urkel_open(src_prefix);
+
+  if (src == NULL) {
+    urkel_close(src);
+    return 0;
+  }
 
   if (hash == NULL)
     root_hash = src->hash;
