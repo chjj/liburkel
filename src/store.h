@@ -32,6 +32,9 @@ int
 urkel_store_destroy(const char *prefix);
 
 int
+urkel_store_stat(const char *prefix, urkel_tree_stat_t *stat);
+
+int
 urkel_store__corrupt(const char *prefix);
 
 urkel_node_t *
