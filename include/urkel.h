@@ -48,6 +48,11 @@ typedef struct urkel_s urkel_t;
 typedef struct urkel_tx_s urkel_tx_t;
 typedef struct urkel_iter_s urkel_iter_t;
 
+typedef struct urkel_tree_stat_s {
+  size_t files; /* Number of files in the tree (except meta). */
+  size_t size;  /* Total size of all files (except meta), in bytes. */
+} urkel_tree_stat_t;
+
 /*
  * Error Number
  */
@@ -83,6 +88,9 @@ urkel_close(urkel_t *tree);
 
 URKEL_EXTERN int
 urkel_destroy(const char *prefix);
+
+URKEL_EXTERN int
+urkel_stat(const char *prefix, urkel_tree_stat_t *stat);
 
 URKEL_EXTERN int
 urkel__corrupt(const char *prefix);

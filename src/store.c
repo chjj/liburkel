@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <urkel.h>
 #include "bits.h"
 #include "internal.h"
 #include "khash.h"
@@ -1147,6 +1148,58 @@ void
 urkel_store_close(data_store_t *store) {
   urkel_store_clear(store);
   free(store);
+}
+
+int
+urkel_store_stat(const char *prefix, urkel_tree_stat_t *stat) {
+  char *prefix_ = urkel_path_resolve(prefix);
+  char path[URKEL_PATH_MAX + 1];
+  size_t path_len;
+  urkel_dirent_t **list;
+  urkel_stat_t st;
+  size_t i, count;
+  int ret = 0;
+
+  if (prefix_ == NULL)
+    return 0;
+
+  path_len = strlen(prefix_);
+
+  if (path_len + 10 > URKEL_PATH_MAX)
+    goto fail;
+
+  memcpy(path, prefix_, path_len + 1);
+
+  path[path_len++] = URKEL_PATH_SEP;
+
+  if (!urkel_fs_scandir(prefix_, &list, &count))
+    goto fail;
+
+  for (i = 0; i < count; i++) {
+    const char *name = list[i]->d_name;
+
+    if (urkel_parse_u32(NULL, name)) {
+      memcpy(path + path_len, name, strlen(name) + 1);
+      if (!urkel_fs_stat(path, &st))
+        goto loop_fail;
+
+      stat->files++;
+      stat->size += st.st_size;
+    }
+  }
+
+  ret = 1;
+
+loop_fail:
+  for (i = 0; i < count; i++)
+    free(list[i]);
+
+  free(list);
+
+fail:
+  free(prefix_);
+
+  return ret;
 }
 
 int

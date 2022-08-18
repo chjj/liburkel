@@ -621,6 +621,16 @@ urkel_destroy(const char *prefix) {
 }
 
 int
+urkel_stat(const char *prefix, urkel_tree_stat_t *stat) {
+  if (!urkel_store_stat(prefix, stat)) {
+    urkel_errno = URKEL_ECORRUPTION;
+    return 0;
+  }
+
+  return 1;
+}
+
+int
 urkel__corrupt(const char *prefix) {
   if (!urkel_store__corrupt(prefix)) {
     urkel_errno = URKEL_EBADOPEN;
