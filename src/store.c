@@ -868,7 +868,8 @@ urkel_store_has_history(data_store_t *store, const unsigned char *root_hash) {
 
   ret = urkel_store_read_history(store, &root, root_hash);
 
-  urkel_node_clear(&root);
+  if (ret)
+    urkel_node_clear(&root);
 
   return ret;
 }
