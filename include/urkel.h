@@ -118,6 +118,11 @@ URKEL_EXTERN int
 urkel_remove(urkel_t *tree, const unsigned char *key);
 
 URKEL_EXTERN int
+urkel_compact(const char *dst_prefix,
+              const char *src_prefix,
+              const unsigned char *hash);
+
+URKEL_EXTERN int
 urkel_prove(urkel_t *tree,
             unsigned char **proof_raw,
             size_t *proof_len,

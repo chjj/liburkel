@@ -477,6 +477,153 @@ urkel_tree_prove(tree_db_t *tree,
 }
 
 static urkel_node_t *
+urkel_tree_compact(tree_db_t *dst, tree_db_t *src, urkel_node_t *node) {
+  switch (node->type) {
+    case URKEL_NODE_NULL: {
+      return node;
+    }
+
+    case URKEL_NODE_INTERNAL: {
+      urkel_internal_t *internal = &node->u.internal;
+      urkel_node_t *left, *right, *out;
+
+      left = urkel_tree_compact(dst, src, internal->left);
+
+      if (left == NULL)
+        return NULL;
+
+      internal->left = left;
+
+      right = urkel_tree_compact(dst, src, internal->right);
+
+      if (right == NULL)
+        return NULL;
+
+      internal->right = right;
+
+      CHECK(node->flags & URKEL_FLAG_WRITTEN);
+      node->flags ^= URKEL_FLAG_WRITTEN;
+
+      urkel_store_write_node(dst->store, node);
+
+      if (urkel_store_needs_flush(dst->store)) {
+        if (!urkel_store_flush(dst->store))
+          return NULL;
+      }
+
+      out = checked_malloc(sizeof(urkel_node_t));
+      urkel_node_hash(node);
+      urkel_node_to_hash(node, out);
+      urkel_node_destroy(node, 1);
+      return out;
+    }
+
+    case URKEL_NODE_LEAF: {
+      urkel_node_t *out;
+      unsigned char value[URKEL_VALUE_SIZE];
+      size_t size;
+
+      if (!urkel_store_retrieve(src->store, node, value, &size))
+        urkel_abort();
+
+      CHECK(node->flags & URKEL_FLAG_WRITTEN);
+      urkel_node_store(node, value, size);
+      node->flags ^= URKEL_FLAG_WRITTEN;
+      node->flags ^= URKEL_FLAG_SAVED;
+
+      urkel_store_write_value(dst->store, node);
+      urkel_store_write_node(dst->store, node);
+
+      if (urkel_store_needs_flush(dst->store)) {
+        if (!urkel_store_flush(dst->store))
+          return NULL;
+      }
+
+      out = checked_malloc(sizeof(urkel_node_t));
+      urkel_node_hash(node);
+      urkel_node_to_hash(node, out);
+      urkel_node_destroy(node, 1);
+
+      return out;
+    }
+
+    case URKEL_NODE_HASH: {
+      urkel_node_t *rn = urkel_store_resolve(src->store, node);
+
+      if (rn == NULL) {
+        urkel_abort();
+        return NULL;
+      }
+
+      urkel_node_destroy(node, 1);
+      return urkel_tree_compact(dst, src, rn);
+    }
+
+    default: {
+      urkel_abort();
+      return NULL;
+    }
+  }
+}
+
+int
+urkel_compact(const char *dst_prefix,
+              const char *src_prefix,
+              const unsigned char *hash) {
+  const unsigned char *root_hash;
+  tree_db_t *dst, *src;
+  urkel_node_t *root = NULL;
+  urkel_node_t *out = NULL;
+  int ret = 1;
+
+  dst = urkel_open(dst_prefix);
+
+  if (dst == NULL)
+    return 0;
+
+  src = urkel_open(src_prefix);
+
+  if (src == NULL) {
+    urkel_close(src);
+    return 0;
+  }
+
+  if (hash == NULL)
+    root_hash = src->hash;
+  else
+    root_hash = hash;
+
+  root = urkel_store_get_history(src->store, root_hash);
+
+  if (root == NULL) {
+    urkel_errno = URKEL_ENOTFOUND;
+    ret = 0;
+    goto fail;
+  }
+
+  out = urkel_tree_compact(dst, src, root);
+
+  if (out == NULL) {
+    urkel_errno = URKEL_EBADWRITE;
+    ret = 0;
+    goto fail;
+  }
+
+  if (!urkel_store_commit(dst->store, out)) {
+    urkel_errno = URKEL_EBADWRITE;
+    ret = 0;
+    goto fail;
+  }
+fail:
+  if (out != NULL)
+    urkel_node_destroy(out, 1);
+
+  urkel_close(dst);
+  urkel_close(src);
+  return ret;
+}
+
+static urkel_node_t *
 urkel_tree_write(tree_db_t *tree, urkel_node_t *node) {
   switch (node->type) {
     case URKEL_NODE_NULL: {
